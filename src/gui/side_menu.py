@@ -1,7 +1,8 @@
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, 
                              QPushButton, QLabel, QLineEdit, QMenu, QWidgetAction,
-                             QStackedWidget, QTextEdit, QFileDialog)
-from PySide6.QtCore import Qt
+                             QStackedWidget, QTextEdit, QFileDialog, QProgressBar)
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QKeySequence, QShortcut
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -20,11 +21,29 @@ class SideMenu(QWidget):
         self.is_heatmap = False
         self.csv_data = None
         self.current_model = None
+        self.cached_graph_view = None
+        self.cached_heatmap_view = None
+        self.last_active_tab = 0
 
         # Create input fields as instance variables
         self.max_input = QLineEdit()
         self.tolerance_input = QLineEdit()
         self.min_input = QLineEdit()
+
+        # Create loading indicator
+        self.loading_bar = QProgressBar()
+        self.loading_bar.setTextVisible(False)
+        self.loading_bar.setMaximumHeight(2)
+        self.loading_bar.setStyleSheet("""
+            QProgressBar {
+                border: none;
+                background: #02070b;
+            }
+            QProgressBar::chunk {
+                background-color: #123458;
+            }
+        """)
+        self.loading_bar.hide()
 
         self.setStyleSheet(Styles.SIDE_MENU)
         self._setup_ui()
@@ -138,8 +157,17 @@ class SideMenu(QWidget):
         button_layout.setContentsMargins(0, 5, 0, 0)  # Reduced top margin
 
         self.view_toggle_btn = QPushButton("Graph View")
-        self.view_toggle_btn.setStyleSheet(Styles.BUTTON_PRIMARY)
+        self.view_toggle_btn.setCheckable(True)
+        self.view_toggle_btn.setStyleSheet(Styles.BUTTON_TOGGLE)
+        self.view_toggle_btn.setToolTip("Toggle between Graph and Heatmap views (Ctrl+T)")
         button_layout.addWidget(self.view_toggle_btn)
+
+        # Add keyboard shortcut
+        self.view_shortcut = QShortcut(QKeySequence("Ctrl+T"), self)
+        self.view_shortcut.activated.connect(self.toggle_view)
+        
+        # Add loading indicator
+        button_layout.addWidget(self.loading_bar)
         
         button_layout.addStretch()
         
@@ -267,29 +295,66 @@ class SideMenu(QWidget):
         self.apply_btn.clicked.connect(self.plot_function)
         self.auto_apply_btn.clicked.connect(self.auto_plot_function)
 
-    def insert_function(self, function_text):
-        current_text = self.function_input.toPlainText()
-        cursor = self.function_input.textCursor()
-        current_position = cursor.position()
-        
-        operators = [" + ", " - ", " * ", " / "]
-        is_operator = function_text in operators
-        
-        if is_operator:
-            new_text = current_text[:current_position] + function_text + current_text[current_position:]
-            self.function_input.setText(new_text)
-            cursor.setPosition(current_position + len(function_text))
+    def _cache_current_view(self):
+        """Cache the current plot state"""
+        if hasattr(self.parent, 'ax') and self.parent.ax is not None:
+            self._cached_state = {
+                'is_heatmap': self.is_heatmap,
+                'xlim': self.parent.ax.get_xlim(),
+                'ylim': self.parent.ax.get_ylim()
+            }
+
+    def _apply_cached_view(self, cached_data=None):
+        """Apply cached view state or redraw plot"""
+        if hasattr(self, '_cached_state'):
+            self.is_heatmap = self._cached_state['is_heatmap']
+            self.view_toggle_btn.setText("Heatmap View" if self.is_heatmap else "Graph View")
+            self.view_toggle_btn.setChecked(self.is_heatmap)
+            self.auto_plot_function()
+            if hasattr(self.parent, 'ax') and self.parent.ax is not None:
+                self.parent.ax.set_xlim(self._cached_state['xlim'])
+                self.parent.ax.set_ylim(self._cached_state['ylim'])
+                self.parent.canvas.draw()
         else:
-            if current_position > 0 and current_text[current_position-1].isalnum():
-                new_text = current_text[:current_position] + " * " + function_text + current_text[current_position:]
-                cursor.setPosition(current_position + len(" * " + function_text))
-            else:
+            self.auto_plot_function()
+
+    def insert_function(self, function_text):
+        """Insert function text at current cursor position safely"""
+        try:
+            current_text = self.function_input.toPlainText()
+            cursor = self.function_input.textCursor()
+            current_position = cursor.position()
+            
+            # Ensure position is within bounds
+            current_position = min(current_position, len(current_text))
+            
+            operators = [" + ", " - ", " * ", " / "]
+            is_operator = function_text in operators
+            
+            if is_operator:
                 new_text = current_text[:current_position] + function_text + current_text[current_position:]
-                cursor.setPosition(current_position + len(function_text))
-                
-        self.function_input.setText(new_text)
-        self.function_input.setTextCursor(cursor)
-        return False
+                new_position = current_position + len(function_text)
+            else:
+                if current_position > 0 and current_text[current_position-1:current_position].isalnum():
+                    new_text = current_text[:current_position] + " * " + function_text + current_text[current_position:]
+                    new_position = current_position + len(" * " + function_text)
+                else:
+                    new_text = current_text[:current_position] + function_text + current_text[current_position:]
+                    new_position = current_position + len(function_text)
+            
+            # Set text first
+            self.function_input.setText(new_text)
+            
+            # Then safely set cursor position
+            cursor = self.function_input.textCursor()
+            new_position = min(new_position, len(new_text))
+            cursor.setPosition(new_position)
+            self.function_input.setTextCursor(cursor)
+            
+        except Exception as e:
+            print(f"Error inserting function: {str(e)}")
+        
+        return False  # Prevent menu from staying open
 
     def plot_function(self):
         function_str = self.function_input.toPlainText().strip()
@@ -308,6 +373,11 @@ class SideMenu(QWidget):
             forbidden = ['import', 'exec', 'eval', 'open', '__']
             if any(term in function_str.lower() for term in forbidden):
                 raise ValueError("Invalid function: Contains forbidden terms")
+            
+            # Clear any existing colorbars before plotting
+            for im in self.parent.ax.images:
+                if hasattr(im, 'colorbar'):
+                    im.colorbar.remove()
             
             # Evaluate with appropriate range for display
             x, y = self.parent.function_plotter.evaluate_function(function_str)
@@ -333,19 +403,27 @@ class SideMenu(QWidget):
             self.parent.ax.set_ylabel('y')
             self.parent.ax.set_title(f'Plot of {function_str}')
             
-            # Set view limits
-            visible_range = x[(x >= -20) & (x <= 20)]  # Expanded visible range
+            # Set default view limits to a more focused range
+            default_x_range = (-5, 5)  # Show a smaller default x range
+            visible_range = x[(x >= default_x_range[0]) & (x <= default_x_range[1])]
             if len(visible_range) > 0:
-                self.parent.ax.set_xlim(-20, 20)  # Show both positive and negative x
-                visible_y = y[(x >= -20) & (x <= 20)]
+                self.parent.ax.set_xlim(default_x_range)
+                visible_y = y[(x >= default_x_range[0]) & (x <= default_x_range[1])]
                 if len(visible_y) > 0:
                     y_min, y_max = np.min(visible_y), np.max(visible_y)
                     if abs(y_max - y_min) < 1:  # Very small range
                         mid = (y_max + y_min) / 2
-                        self.parent.ax.set_ylim(mid - 1, mid + 1)
+                        self.parent.ax.set_ylim(mid - 2, mid + 2)
                     else:
-                        padding = (y_max - y_min) * 0.1
+                        padding = (y_max - y_min) * 0.2  # Increased padding for better visibility
                         self.parent.ax.set_ylim(y_min - padding, y_max + padding)
+                else:
+                    # If no visible points in range, use symmetric limits
+                    self.parent.ax.set_ylim(-5, 5)
+            else:
+                # Fallback to default view
+                self.parent.ax.set_xlim(-5, 5)
+                self.parent.ax.set_ylim(-5, 5)
             
             self.parent.toolbar.update()
             self.parent.canvas.draw()
@@ -363,9 +441,32 @@ class SideMenu(QWidget):
             self.parent.statusBar.showMessage(f"Error plotting function: {str(e)}", 5000)
 
     def toggle_view(self):
+        if not self.csv_data:
+            return
+
+        # Store current view state before switching
+        self._cache_current_view()
+        
         self.is_heatmap = not self.is_heatmap
         self.view_toggle_btn.setText("Heatmap View" if self.is_heatmap else "Graph View")
-        self.auto_plot_function()
+        self.view_toggle_btn.setChecked(self.is_heatmap)
+        
+        # Show loading indicator
+        self.loading_bar.show()
+        self.loading_bar.setRange(0, 0)  # Indeterminate mode
+        self.view_toggle_btn.setEnabled(False)
+        
+        # Use timer to allow UI to update
+        QTimer.singleShot(50, self._delayed_view_update)
+
+    def _delayed_view_update(self):
+        try:
+            self.auto_plot_function()
+        finally:
+            # Hide loading indicator
+            self.loading_bar.hide()
+            self.loading_bar.setRange(0, 100)
+            self.view_toggle_btn.setEnabled(True)
 
     def upload_csv(self):
         file_path, _ = QFileDialog.getOpenFileName(
@@ -428,6 +529,10 @@ class SideMenu(QWidget):
             self.parent.ax.set_title("Insufficient Data")
             return
             
+        # Clear any existing colorbars before creating new plot
+        self.parent.figure.clear()
+        self.parent.ax = self.parent.figure.add_subplot(111)
+        
         grid_size = 500
         x_min, x_max = x.min(), x.max()
         y_min, y_max = y.min(), y.max()
@@ -440,10 +545,6 @@ class SideMenu(QWidget):
             weights = 1 / (1 + distances)
             weights = weights / np.sum(weights)
             Z[idx] = np.minimum(Z[idx], loss)
-        
-        # Clear any existing colorbars
-        for im in self.parent.ax.images:
-            im.colorbar.remove() if hasattr(im, 'colorbar') else None
             
         Z_2d = np.tile(Z, (50, 1))
         
@@ -465,7 +566,8 @@ class SideMenu(QWidget):
         self.parent.ax.set_ylabel('Path Loss (dB)')
         self.parent.ax.set_title('Path Loss Heatmap\nWarmer colors = Better signal (lower loss)')
         
-        self.parent.figure.tight_layout()
+        # Use tight_layout with a bit more padding
+        self.parent.figure.tight_layout(pad=1.1)
 
     def _plot_regression(self, max_points, tolerance, min_length):
         if self.csv_data is None:
@@ -512,16 +614,29 @@ class SideMenu(QWidget):
         self.parent.figure.tight_layout()
 
     def show_menu(self, index):
+        previous_tab = self.last_active_tab
+        self.last_active_tab = index
+        
         self.auto_btn.setChecked(False)
         self.manual_btn.setChecked(False)
         self.other_btn.setChecked(False)
         
-        if index != 0 and self.is_heatmap:
+        # Only reset view if switching away from Auto tab
+        if previous_tab == 0 and index != 0:
+            # Store current view state
+            self._cache_current_view()
+            
+            # Reset to graph view in UI only
             self.is_heatmap = False
             self.view_toggle_btn.setText("Graph View")
+            self.view_toggle_btn.setChecked(False)
+            
             self.parent.init_plot()
             if index == 1:
                 self.plot_function()
+        elif previous_tab != 0 and index == 0:
+            # Restore previous Auto tab view
+            self._apply_cached_view()
         
         if index == 0:
             self.auto_btn.setChecked(True)
