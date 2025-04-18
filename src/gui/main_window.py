@@ -1,6 +1,6 @@
 import sys
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
-                              QHBoxLayout, QLabel, QMenuBar, QMenu, QStatusBar)
+                              QHBoxLayout, QLabel, QMenuBar, QMenu, QStatusBar, QMessageBox)
 from PySide6.QtCore import QTimer, QDateTime
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
@@ -40,18 +40,94 @@ class MathPlotterApp(QMainWindow):
         
         # Edit menu
         edit_menu = menubar.addMenu("Edit")
-        edit_menu.addAction("Copy")
-        edit_menu.addAction("Paste")
+        copy_action = edit_menu.addAction("Copy")
+        copy_action.triggered.connect(self._copy_function)
+        paste_action = edit_menu.addAction("Paste")
+        paste_action.triggered.connect(self._paste_function)
         
         # View menu
         view_menu = menubar.addMenu("View")
-        view_menu.addAction("Zoom In")
-        view_menu.addAction("Zoom Out")
-        view_menu.addAction("Reset View")
+        zoom_in_action = view_menu.addAction("Zoom In")
+        zoom_in_action.triggered.connect(lambda: self._zoom_view(1.25))
+        zoom_out_action = view_menu.addAction("Zoom Out")
+        zoom_out_action.triggered.connect(lambda: self._zoom_view(0.8))
+        reset_view_action = view_menu.addAction("Reset View")
+        reset_view_action.triggered.connect(self._reset_view)
         
         # Help menu
         help_menu = menubar.addMenu("Help")
-        help_menu.addAction("About")
+        about_action = help_menu.addAction("About")
+        about_action.triggered.connect(self._show_about_dialog)
+
+    def _copy_function(self):
+        """Copy current function from manual input"""
+        if hasattr(self.side_menu, 'function_input'):
+            self.side_menu.function_input.copy()
+
+    def _paste_function(self):
+        """Paste text into manual function input"""
+        if hasattr(self.side_menu, 'function_input'):
+            self.side_menu.function_input.paste()
+
+    def _zoom_view(self, factor):
+        """Zoom the plot view by a given factor"""
+        if not hasattr(self, 'ax') or self.ax is None:
+            return
+            
+        cur_xlim = self.ax.get_xlim()
+        cur_ylim = self.ax.get_ylim()
+        
+        # Calculate center points
+        xcenter = (cur_xlim[1] + cur_xlim[0]) / 2
+        ycenter = (cur_ylim[1] + cur_ylim[0]) / 2
+        
+        # Calculate new ranges
+        xrange = (cur_xlim[1] - cur_xlim[0]) / 2
+        yrange = (cur_ylim[1] - cur_ylim[0]) / 2
+        
+        # Set new limits
+        self.ax.set_xlim([xcenter - xrange/factor, xcenter + xrange/factor])
+        self.ax.set_ylim([ycenter - yrange/factor, ycenter + yrange/factor])
+        
+        self.canvas.draw_idle()
+
+    def _reset_view(self):
+        """Reset to original view"""
+        if not hasattr(self, 'ax') or self.ax is None:
+            return
+            
+        # Get current tab
+        current_tab = self.side_menu.stack.currentIndex()
+        
+        if current_tab == 0:  # Auto tab
+            # Replot with cached view if available
+            if hasattr(self.side_menu, '_cached_state'):
+                self.side_menu._apply_cached_view()
+            else:
+                self.side_menu.auto_plot_function()
+        else:  # Manual tab
+            function_str = self.side_menu.function_input.toPlainText().strip()
+            if function_str:
+                self.side_menu.plot_function()
+            else:
+                self.init_plot()
+
+    def _show_about_dialog(self):
+        """Show about dialog with mock data"""
+        about = QMessageBox(self)
+        about.setWindowTitle("About RF-Modeler")
+        about.setText("RF-Modeler v1.0.0")
+        about.setInformativeText(
+            "A tool for modeling and visualizing RF signal propagation.\n\n"
+            "Features:\n"
+            "• CSV data visualization\n"
+            "• Mathematical function plotting\n"
+            "• Piecewise logarithmic regression\n"
+            "• Heatmap visualization\n\n"
+            "© 2025 RF-Modeler Team"
+        )
+        about.setIcon(QMessageBox.Information)
+        about.exec_()
 
     def _initialize_plotter(self):
         self.function_plotter = FunctionPlotter()
