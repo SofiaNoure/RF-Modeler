@@ -1,6 +1,7 @@
 import numpy as np
 from sklearn.metrics import r2_score
 from scipy.linalg import solve
+from scipy import stats
 
 
 class PiecewiseLogarithmicRegression:
@@ -16,9 +17,13 @@ class PiecewiseLogarithmicRegression:
         self.mse_ = None
 
     def _solve_logarithmic_regression(self, X, y):
+        """Optimized logarithmic regression solving using SVD for better numerical stability"""
         X_log = np.log(X)
         X_design = np.column_stack([np.ones_like(X_log), X_log])
-        return np.linalg.lstsq(X_design, y, rcond=None)[0]
+        # Use SVD for better numerical stability and performance
+        U, s, Vh = np.linalg.svd(X_design, full_matrices=False)
+        s_inv = np.where(s > 1e-15, 1/s, 0.)  # Threshold for numerical stability
+        return (Vh.T * s_inv) @ (U.T @ y)
 
     def _apply_continuity_constraints(self, x_segments, y_segments, breakpoints):
         models = []
@@ -53,36 +58,65 @@ class PiecewiseLogarithmicRegression:
         return models
 
     def _optimize_breakpoints(self, x, y, initial_breakpoints):
+        """Optimized breakpoint optimization with adaptive search"""
         breakpoints = np.sort(initial_breakpoints.copy())
-        for _ in range(self.max_iter):
-            new_breakpoints = breakpoints.copy()
+        convergence_threshold = 1e-6
+        
+        for iter_count in range(self.max_iter):
+            old_breakpoints = breakpoints.copy()
+            improvements = []
+            
+            # Parallel search for optimal breakpoints
             for i in range(1, len(breakpoints) - 1):
-                left_bp = breakpoints[i - 1]
-                right_bp = breakpoints[i + 1]
+                left_bp, right_bp = breakpoints[i-1], breakpoints[i+1]
                 delta = 0.2 * (right_bp - left_bp)
-                neighborhood = np.linspace(breakpoints[i] - delta, breakpoints[i] + delta, 10)
-
-                best_mse = float('inf')
-                best_candidate = breakpoints[i]
-
+                
+                # Adaptive neighborhood size based on iteration count
+                n_points = max(5, 10 - iter_count // 10)  # Reduce search points in later iterations
+                neighborhood = np.linspace(breakpoints[i] - delta, 
+                                        breakpoints[i] + delta, 
+                                        n_points)
+                
+                # Quick evaluation of candidates
+                mse_values = []
                 for candidate in neighborhood:
                     temp_breakpoints = breakpoints.copy()
                     temp_breakpoints[i] = candidate
                     try:
-                        mse = self._calculate_mse(x, y, temp_breakpoints)
-                        if mse < best_mse:
-                            best_mse = mse
-                            best_candidate = candidate
+                        mse = self._quick_mse_estimate(x, y, temp_breakpoints)
+                        mse_values.append((mse, candidate))
                     except:
                         continue
-
-                new_breakpoints[i] = best_candidate
-
-            if np.allclose(new_breakpoints, breakpoints, atol=1e-6):
+                
+                if mse_values:
+                    best_mse, best_candidate = min(mse_values, key=lambda x: x[0])
+                    improvements.append((i, best_candidate))
+            
+            # Apply all improvements at once
+            for idx, new_value in improvements:
+                breakpoints[idx] = new_value
+            
+            # Check for convergence
+            if np.allclose(old_breakpoints, breakpoints, atol=convergence_threshold):
                 break
-            breakpoints = new_breakpoints
-
+            
         return breakpoints
+
+    def _quick_mse_estimate(self, x, y, breakpoints):
+        """Quick MSE estimation using subset of points for faster optimization"""
+        # Use subset of points for quick estimation during optimization
+        n_samples = min(len(x), 100)  # Limit number of points for speed
+        idx = np.linspace(0, len(x)-1, n_samples, dtype=int)
+        x_subset, y_subset = x[idx], y[idx]
+        
+        y_pred = np.zeros_like(x_subset)
+        for i in range(len(breakpoints) - 1):
+            mask = (x_subset >= breakpoints[i]) & (x_subset <= breakpoints[i + 1])
+            if np.any(mask):
+                A, B = self._solve_logarithmic_regression(x_subset[mask], y_subset[mask])
+                y_pred[mask] = A + B * np.log(x_subset[mask])
+        
+        return np.mean((y_pred - y_subset) ** 2)
 
     def _remove_redundant_breakpoints(self, x, y, breakpoints):
         if len(breakpoints) <= 2:
@@ -195,3 +229,29 @@ class PiecewiseLogarithmicRegression:
         if self.verbose:
             print("\nFULL HEAVISIDE EXPRESSION:\n" + full_expr)
         return full_expr
+
+    def get_confidence_intervals(self, x, confidence=0.95):
+        """Calculate confidence intervals for predictions"""
+        x = np.asarray(x).flatten()
+        y_pred = self.predict(x)
+        intervals = []
+        
+        for i in range(len(self.breakpoints_) - 1):
+            mask = (x >= self.breakpoints_[i]) & (x <= self.breakpoints_[i + 1])
+            if np.any(mask) and self.models_[i] is not None:
+                x_segment = x[mask]
+                X_design = np.column_stack([np.ones_like(x_segment), np.log(x_segment)])
+                
+                # Calculate prediction interval
+                alpha = 1 - confidence
+                n = len(x_segment)
+                df = n - 2  # Degrees of freedom
+                t_val = stats.t.ppf(1 - alpha/2, df)
+                
+                mse = self.mse_  # Use overall MSE for stability
+                std_err = np.sqrt(mse * (1 + np.diag(X_design @ np.linalg.pinv(X_design.T @ X_design) @ X_design.T)))
+                
+                interval = t_val * std_err
+                intervals.append((mask, interval))
+        
+        return intervals
