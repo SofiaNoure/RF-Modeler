@@ -86,6 +86,32 @@ class Styles:
         }
     """
 
+    BUTTON_TOGGLE = """
+        QPushButton {
+            background-color: #123458;
+            color: white;
+            font-weight: bold;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            min-width: 120px;
+        }
+        QPushButton:hover {
+            background-color: #132e49;
+        }
+        QPushButton:pressed {
+            background-color: #02070b;
+        }
+        QPushButton:checked {
+            background-color: #02070b;
+            border: 2px solid #123458;
+        }
+        QPushButton:disabled {
+            background-color: #1a1a1a;
+            color: #808080;
+        }
+    """
+
     INPUT_FIELD = """
         QLineEdit, QTextEdit {
             font-size: 14px;
