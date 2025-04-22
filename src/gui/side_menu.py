@@ -1,7 +1,8 @@
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, 
                              QPushButton, QLabel, QLineEdit, QMenu, QWidgetAction,
                              QStackedWidget, QTextEdit, QFileDialog, QProgressBar,
-                             QSplitter, QScrollArea, QFrame, QDialog, QSpinBox, QCheckBox)
+                             QSplitter, QScrollArea, QFrame, QDialog, QSpinBox, QCheckBox,
+                             QDoubleSpinBox, QApplication) # Added QApplication
 from PySide6.QtCore import Qt, QTimer, QRect
 from PySide6.QtGui import QKeySequence, QShortcut, QImage, QPixmap, QPainter, QPen, QColor
 import numpy as np
@@ -574,10 +575,20 @@ class SideMenu(QWidget):
         self.cached_heatmap_view = None
         self.last_active_tab = 0
 
-        # Create input fields as instance variables
-        self.max_input = QLineEdit()
-        self.tolerance_input = QLineEdit()
-        self.min_input = QLineEdit()
+        # Create input fields as instance variables using specialized widgets
+        self.max_input = QSpinBox()
+        self.max_input.setRange(1, 100) # Set a reasonable range
+        self.max_input.setValue(5) # Default value
+
+        self.tolerance_input = QDoubleSpinBox()
+        self.tolerance_input.setRange(0.01, 100.0) # Set a reasonable range
+        self.tolerance_input.setSingleStep(0.1)
+        self.tolerance_input.setDecimals(2)
+        self.tolerance_input.setValue(1.00) # Default value
+
+        self.min_input = QSpinBox()
+        self.min_input.setRange(1, 1000) # Set a reasonable range
+        self.min_input.setValue(3) # Default value
 
         # Create loading indicator
         self.loading_bar = QProgressBar()
@@ -601,6 +612,9 @@ class SideMenu(QWidget):
         self.auto_btn.setChecked(True)
         self.stack.setCurrentIndex(0)
 
+        # Initially disable predict button
+        self.predict_btn.setEnabled(False)
+
     def _setup_ui(self):
         self._create_tab_buttons()
         self._create_stacked_widget()
@@ -618,7 +632,12 @@ class SideMenu(QWidget):
         self.auto_btn = QPushButton("Auto")
         self.manual_btn = QPushButton("Manual")
         self.other_btn = QPushButton("Other")
-        
+
+        # Add tooltips to tab buttons
+        self.auto_btn.setToolTip("Automatic regression modeling based on uploaded CSV data.")
+        self.manual_btn.setToolTip("Plot mathematical functions manually.")
+        self.other_btn.setToolTip("Predict path loss using the fitted model or view other analyses.")
+
         for btn in (self.auto_btn, self.manual_btn, self.other_btn):
             btn.setStyleSheet(Styles.BUTTON_TAB)
             btn.setCheckable(True)
@@ -660,12 +679,12 @@ class SideMenu(QWidget):
 
         # Parameter inputs with consistent styling
         parameters = [
-            ("MAX - Breaking points:", "Default Value : 5", self.max_input),
-            ("Tolerance:", "Default Value : 1.00", self.tolerance_input),
-            ("Min - Segment Length:", "Default Value : 3", self.min_input)
+            ("MAX - Breaking points:", "Max number of segments (integer)", self.max_input),
+            ("Tolerance:", "Fitting tolerance (float)", self.tolerance_input),
+            ("Min - Segment Length:", "Minimum data points per segment (integer)", self.min_input)
         ]
 
-        for label_text, placeholder, input_field in parameters:
+        for label_text, tooltip, input_field in parameters:
             param_container = QWidget()
             param_layout = QVBoxLayout(param_container)
             param_layout.setSpacing(4)  # Reduced spacing
@@ -674,9 +693,10 @@ class SideMenu(QWidget):
             label = QLabel(label_text)
             label.setStyleSheet(Styles.LABEL)
             
-            input_field.setPlaceholderText(placeholder)
-            input_field.setStyleSheet(Styles.INPUT_FIELD)
+            # Apply common style and add tooltip
+            input_field.setStyleSheet(Styles.INPUT_FIELD) # Use INPUT_FIELD style for spin boxes too
             input_field.setFixedHeight(32)
+            input_field.setToolTip(tooltip) # Add tooltip here
             
             param_layout.addWidget(label)
             param_layout.addWidget(input_field)
@@ -700,6 +720,7 @@ class SideMenu(QWidget):
         
         self.auto_apply_btn = QPushButton("Apply")
         self.auto_apply_btn.setStyleSheet(Styles.BUTTON_PRIMARY)
+        self.auto_apply_btn.setToolTip("Fit the regression model to the uploaded data.") # Add tooltip
         button_layout.addWidget(self.auto_apply_btn)
         
         auto_layout.addWidget(button_container)
@@ -742,6 +763,7 @@ class SideMenu(QWidget):
         # Add apply button
         self.apply_btn = QPushButton("Apply")
         self.apply_btn.setStyleSheet(Styles.BUTTON_PRIMARY)
+        self.apply_btn.setToolTip("Plot the entered mathematical function.") # Add tooltip
         button_row.addWidget(self.apply_btn)
         
         input_layout.addLayout(button_row)
@@ -789,6 +811,7 @@ class SideMenu(QWidget):
         self.predict_btn = QPushButton("Predict Path Loss")
         self.predict_btn.setStyleSheet(Styles.BUTTON_PRIMARY)
         self.predict_btn.clicked.connect(self._predict_path_loss)
+        self.predict_btn.setToolTip("Predict path loss for a given distance using the fitted model.") # Add tooltip
         button_layout.addStretch()
         button_layout.addWidget(self.predict_btn)
 
@@ -1067,28 +1090,67 @@ class SideMenu(QWidget):
                 return False
 
     def auto_plot_function(self):
+        # Show loading bar for model fitting
+        self.loading_bar.show()
+        self.loading_bar.setRange(0, 0) # Indeterminate mode
+        self.auto_apply_btn.setEnabled(False) # Disable apply while processing
+        self.parent.statusBar.showMessage("Fitting regression model...", 0) # Persistent message
+
+        # Use QTimer to allow UI update before heavy computation
+        QTimer.singleShot(50, self._perform_auto_plot)
+
+    def _perform_auto_plot(self):
         try:
-            max_points = int(self.max_input.text()) if self.max_input.text() else 5
-            tolerance = float(self.tolerance_input.text()) if self.tolerance_input.text() else 1.00
-            min_length = int(self.min_input.text()) if self.min_input.text() else 3
-            
+            # Read values from spin boxes
+            max_points = self.max_input.value()
+            tolerance = self.tolerance_input.value()
+            min_length = self.min_input.value()
+
             self.parent.figure.clear()
             self.parent.ax = self.parent.figure.add_subplot(111)
-            
+
             if self.is_heatmap:
+                self.parent.statusBar.showMessage("Generating heatmap...", 0)
+                QApplication.processEvents() # Allow UI update
                 self._plot_heatmap()
+                self.parent.statusBar.showMessage("Heatmap generated.", 3000)
             else:
+                self.parent.statusBar.showMessage("Fitting model and plotting regression...", 0)
+                QApplication.processEvents() # Allow UI update
                 self._plot_regression(max_points, tolerance, min_length)
+                # Enable predict button only if model fitting was successful
+                self.predict_btn.setEnabled(self.current_model is not None)
+                # Enable report generation in main window
+                self.parent.update_report_action_state(self.current_model is not None)
+
+                if self.current_model:
+                    self.parent.statusBar.showMessage("Regression model fitted and plotted.", 3000)
+                else:
+                    # If model fitting failed within _plot_regression (e.g., insufficient data)
+                    self.parent.statusBar.showMessage("Model fitting failed.", 5000)
+
 
             self.parent.canvas.draw()
-            
+
         except ValueError as e:
             self.parent.figure.clear()
             self.parent.ax = self.parent.figure.add_subplot(111)
-            self.parent.ax.text(0.5, 0.5, f"Error: Please enter valid numbers\n{str(e)}", 
+            self.parent.ax.text(0.5, 0.5, f"Error: Invalid input parameters\n{str(e)}",
                         ha='center', va='center', transform=self.parent.ax.transAxes, color='red')
             self.parent.ax.set_title("Auto Plot Error")
             self.parent.canvas.draw()
+            self.parent.statusBar.showMessage(f"Error: Invalid input - {str(e)}", 5000)
+            self.predict_btn.setEnabled(False) # Disable predict on error
+            self.parent.update_report_action_state(False) # Disable report on error
+
+        finally:
+            # Hide loading bar and re-enable button regardless of success/failure
+            self.loading_bar.hide()
+            self.loading_bar.setRange(0, 100) # Reset range
+            self.auto_apply_btn.setEnabled(True)
+            # Clear persistent status message if one wasn't set by success/failure cases
+            if self.parent.statusBar.currentMessage().endswith("..."):
+                 self.parent.statusBar.clearMessage()
 
     def _plot_heatmap(self):
         if self.csv_data is None:
@@ -1157,12 +1219,17 @@ class SideMenu(QWidget):
             return
             
         x, y = self.csv_data
-        
+
         # Create progress text on plot
-        self.parent.ax.text(0.5, 0.5, "Fitting model...", 
+        self.parent.ax.text(0.5, 0.5, "Fitting model...",
                           ha='center', va='center', transform=self.parent.ax.transAxes)
         self.parent.canvas.draw()
-        
+        QApplication.processEvents() # Ensure text is shown
+
+        # Update status bar
+        self.parent.statusBar.showMessage("Optimizing breakpoints...", 0)
+        QApplication.processEvents()
+
         model = PiecewiseLogarithmicRegression(
             max_breakpoints=max_points,
             min_segment_length=min_length,
@@ -1175,6 +1242,10 @@ class SideMenu(QWidget):
         # Clear the figure for the enhanced plot
         self.parent.figure.clear()
         self.parent.ax = self.parent.figure.add_subplot(111)
+
+        # Update status bar
+        self.parent.statusBar.showMessage("Plotting results...", 0)
+        QApplication.processEvents()
 
         # Plot original data points
         self.parent.ax.scatter(x, y, s=30, alpha=0.5, color='blue')
@@ -1236,6 +1307,9 @@ class SideMenu(QWidget):
         # Update canvas
         self.parent.canvas.draw()
 
+        # Clear status bar after short delay
+        QTimer.singleShot(100, lambda: self.parent.statusBar.showMessage("Model fitting complete.", 3000) if self.current_model else None)
+
     def show_menu(self, index):
         previous_tab = self.last_active_tab
         self.last_active_tab = index
@@ -1259,10 +1333,15 @@ class SideMenu(QWidget):
         elif previous_tab == 1 and index in [0, 2]:  # Switching FROM Manual TO Auto/Other
             # Restore previous Auto/Other tab view
             self._apply_cached_view()
+            # Ensure predict button state is correct based on whether a model exists
+            self.predict_btn.setEnabled(self.current_model is not None)
         elif previous_tab in [0, 2] and index in [0, 2]:  # Switching between Auto and Other
             # Keep current view state, no need to reset
-            pass
-        
+            # Ensure predict button state is correct
+             self.predict_btn.setEnabled(self.current_model is not None)
+        else: # Switching from Auto/Other to Manual
+             self.predict_btn.setEnabled(False) # Cannot predict in manual mode
+
         # Update the active tab button
         if index == 0:
             self.auto_btn.setChecked(True)
@@ -1276,17 +1355,21 @@ class SideMenu(QWidget):
         # Update prediction display if switching to Other tab with a fitted model
         if index == 2 and self.current_model is not None:
             self.prediction_result.setText("Enter a distance value above to predict path loss using the current model.")
+            self.predict_btn.setEnabled(True) # Ensure predict is enabled
             # Update the plot if a prediction point exists
             if hasattr(self.parent, 'ax'):
                 self.parent.canvas.draw()
+        elif index == 2: # Switching to Other tab without a model
+             self.prediction_result.setText("Fit a model in the 'Auto' tab first to enable prediction.")
+             self.predict_btn.setEnabled(False) # Ensure predict is disabled
 
     def _predict_path_loss(self):
+        # Check if we have a model (redundant check, but safe)
+        if self.current_model is None:
+            self.prediction_result.setText("Error: Please fit a model in the 'Auto' tab first.")
+            return
+
         try:
-            # Check if we have a model
-            if self.current_model is None:
-                self.prediction_result.setText("Error: Please upload a CSV file and fit a model first by using the Auto panel.")
-                return
-            
             # Get the distance value from input
             distance_str = self.prediction_input.toPlainText().strip()
             if not distance_str:
