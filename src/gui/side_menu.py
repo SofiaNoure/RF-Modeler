@@ -1,9 +1,9 @@
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, 
                              QPushButton, QLabel, QLineEdit, QMenu, QWidgetAction,
                              QStackedWidget, QTextEdit, QFileDialog, QProgressBar,
-                             QSplitter, QScrollArea, QFrame, QDialog, QSpinBox)
+                             QSplitter, QScrollArea, QFrame, QDialog, QSpinBox, QCheckBox)
 from PySide6.QtCore import Qt, QTimer, QRect
-from PySide6.QtGui import QKeySequence, QShortcut, QImage, QPixmap
+from PySide6.QtGui import QKeySequence, QShortcut, QImage, QPixmap, QPainter, QPen, QColor
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -12,6 +12,51 @@ import io
 from ..core.regression_model import PiecewiseLogarithmicRegression
 from ..utils.data_loader import load_data_from_file
 from .styles import Styles
+
+class SelectableImageLabel(QLabel):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.selection_start = None
+        self.selection_end = None
+        self.is_selecting = False
+        self.setMouseTracking(True)
+        
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.selection_start = event.pos()
+            self.selection_end = event.pos()
+            self.is_selecting = True
+            
+    def mouseMoveEvent(self, event):
+        if self.is_selecting:
+            self.selection_end = event.pos()
+            self.update()
+            
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.is_selecting = False
+            if self.selection_start and self.selection_end:
+                self.update()
+                
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if self.selection_start and self.selection_end:
+            painter = QPainter(self)
+            pen = QPen(QColor(59, 130, 246), 2)  # Blue color matching theme
+            painter.setPen(pen)
+            
+            x = min(self.selection_start.x(), self.selection_end.x())
+            y = min(self.selection_start.y(), self.selection_end.y())
+            w = abs(self.selection_end.x() - self.selection_start.x())
+            h = abs(self.selection_end.y() - self.selection_start.y())
+            
+            # Draw semi-transparent overlay
+            painter.fillRect(0, 0, self.width(), self.height(), 
+                           QColor(0, 0, 0, 100))
+            # Clear selection rectangle
+            painter.fillRect(x, y, w, h, QColor(255, 255, 255, 0))
+            # Draw selection border
+            painter.drawRect(x, y, w, h)
 
 class ImageUploadDialog(QDialog):
     def __init__(self, parent=None):
@@ -57,11 +102,17 @@ class ImageUploadDialog(QDialog):
         preview_label.setStyleSheet("font-weight: 500; font-size: 13px; color: #e1e5ee;")
         preview_layout.addWidget(preview_label)
         
-        self.image_label = QLabel()
+        self.image_label = SelectableImageLabel()
         self.image_label.setMinimumSize(400, 300)
         self.image_label.setAlignment(Qt.AlignCenter)
         self.image_label.setStyleSheet("border: 1px dashed #3a4255; background-color: #1a1f2d;")
         preview_layout.addWidget(self.image_label)
+        
+        # Add size info label
+        self.size_info_label = QLabel("")
+        self.size_info_label.setStyleSheet("color: #e1e5ee; font-size: 12px;")
+        self.size_info_label.setAlignment(Qt.AlignCenter)
+        preview_layout.addWidget(self.size_info_label)
         
         main_layout.addWidget(preview_group)
         
@@ -91,6 +142,12 @@ class ImageUploadDialog(QDialog):
         size_layout.addWidget(self.width_spin, 0, 1)
         size_layout.addWidget(QLabel("Height:"), 1, 0)
         size_layout.addWidget(self.height_spin, 1, 1)
+        
+        # Add checkbox for maintaining aspect ratio
+        self.maintain_aspect_ratio = QCheckBox("Maintain aspect ratio")
+        self.maintain_aspect_ratio.setStyleSheet("color: #e1e5ee;")
+        self.maintain_aspect_ratio.setChecked(True)
+        size_layout.addWidget(self.maintain_aspect_ratio, 2, 0, 1, 2)
         
         settings_layout.addLayout(size_layout)
         main_layout.addWidget(settings_group)
@@ -160,9 +217,16 @@ class ImageUploadDialog(QDialog):
         self.ok_btn.clicked.connect(self.accept)
         self.cancel_btn.clicked.connect(self.reject)
         
+        # Connect spinbox signals for aspect ratio maintenance
+        self.width_spin.valueChanged.connect(self._on_width_changed)
+        self.height_spin.valueChanged.connect(self._on_height_changed)
+        
+        # Internal state tracking
+        self._updating_spinbox = False  # Flag to prevent recursive updates
         self.pil_image = None
         self.processed_image = None
         self._original_size = None
+        self._scale_factor = 1.0
 
     def set_image(self, image_path):
         self.pil_image = Image.open(image_path)
@@ -203,26 +267,131 @@ class ImageUploadDialog(QDialog):
         if self.processed_image:
             width = self.width_spin.value()
             height = self.height_spin.value()
-            self.processed_image = self.processed_image.resize(
-                (width, height),
-                Image.Resampling.LANCZOS
-            )
-            self.update_preview()
+            
+            # Check for valid dimensions
+            if width <= 0 or height <= 0:
+                return
+                
+            try:
+                if self.maintain_aspect_ratio.isChecked():
+                    aspect_ratio = self._original_size[0] / self._original_size[1]
+                    if width / height > aspect_ratio:
+                        width = int(height * aspect_ratio)
+                        self.width_spin.setValue(width)
+                    else:
+                        height = int(width / aspect_ratio)
+                        self.height_spin.setValue(height)
+                
+                self.processed_image = self.processed_image.resize(
+                    (width, height),
+                    Image.Resampling.LANCZOS
+                )
+                
+                # Update the image preview
+                self.update_preview()
+                
+                # Update size info label
+                self.size_info_label.setText(f"Current: {width}x{height} px")
+            except Exception as e:
+                print(f"Error resizing image: {e}")
 
     def crop_image(self):
-        if self.processed_image:
-            width = self.width_spin.value()
-            height = self.height_spin.value()
+        if not self.processed_image or not self.image_label.selection_start:
+            return
             
-            # Calculate center crop
-            img_width, img_height = self.processed_image.size
-            left = (img_width - width) // 2
-            top = (img_height - height) // 2
-            right = left + width
-            bottom = top + height
+        # Get selection coordinates in label space
+        x1 = min(self.image_label.selection_start.x(), self.image_label.selection_end.x())
+        y1 = min(self.image_label.selection_start.y(), self.image_label.selection_end.y())
+        x2 = max(self.image_label.selection_start.x(), self.image_label.selection_end.x())
+        y2 = max(self.image_label.selection_start.y(), self.image_label.selection_end.y())
+        
+        # Check if selection has minimum size
+        if x2 - x1 < 5 or y2 - y1 < 5:
+            return  # Selection too small to crop
             
-            self.processed_image = self.processed_image.crop((left, top, right, bottom))
+        # Get the actual pixmap displayed in the label
+        pixmap = self.image_label.pixmap()
+        if not pixmap:
+            return
+        
+        # Get the pixmap's position within the label (for centering)
+        label_width = self.image_label.width()
+        label_height = self.image_label.height()
+        pixmap_width = pixmap.width()
+        pixmap_height = pixmap.height()
+        
+        # Calculate offset if image is centered in the label
+        offset_x = max(0, (label_width - pixmap_width) // 2)
+        offset_y = max(0, (label_height - pixmap_height) // 2)
+        
+        # Adjust selection coordinates to account for centering
+        x1 = max(0, x1 - offset_x)
+        y1 = max(0, y1 - offset_y)
+        x2 = min(pixmap_width, x2 - offset_x)
+        y2 = min(pixmap_height, y2 - offset_y)
+        
+        # If selection is outside the image area, return
+        if x1 >= pixmap_width or y1 >= pixmap_height or x2 <= 0 or y2 <= 0:
+            return
+        
+        # Convert selection coordinates to original image coordinates
+        scale_x = self.processed_image.size[0] / pixmap_width
+        scale_y = self.processed_image.size[1] / pixmap_height
+        
+        img_x1 = int(x1 * scale_x)
+        img_y1 = int(y1 * scale_y)
+        img_x2 = int(x2 * scale_x)
+        img_y2 = int(y2 * scale_y)
+        
+        # Ensure coordinates are within image bounds
+        img_x1 = max(0, img_x1)
+        img_y1 = max(0, img_y1)
+        img_x2 = min(self.processed_image.size[0], img_x2)
+        img_y2 = min(self.processed_image.size[1], img_y2)
+        
+        # Crop the image
+        try:
+            self.processed_image = self.processed_image.crop((img_x1, img_y1, img_x2, img_y2))
+            
+            # Update spinboxes with new size
+            self.width_spin.setValue(self.processed_image.size[0])
+            self.height_spin.setValue(self.processed_image.size[1])
+            
+            # Clear selection and update preview
+            self.image_label.selection_start = None
+            self.image_label.selection_end = None
             self.update_preview()
+            
+            # Update size info label
+            self.size_info_label.setText(f"Current: {self.processed_image.size[0]}x{self.processed_image.size[1]} px")
+        except Exception as e:
+            print(f"Error cropping image: {e}")
+            # If crop fails, reset selection
+            self.image_label.selection_start = None
+            self.image_label.selection_end = None
+            self.update_preview()
+
+    def _on_width_changed(self, value):
+        if self._updating_spinbox or not self.maintain_aspect_ratio.isChecked():
+            return
+        self._updating_spinbox = True
+        try:
+            aspect_ratio = self._original_size[0] / self._original_size[1]
+            new_height = int(value / aspect_ratio)
+            self.height_spin.setValue(new_height)
+        finally:
+            self._updating_spinbox = False
+
+    def _on_height_changed(self, value):
+        if self._updating_spinbox or not self.maintain_aspect_ratio.isChecked():
+            return
+        self._updating_spinbox = True
+        try:
+            aspect_ratio = self._original_size[0] / self._original_size[1]
+            new_width = int(value * aspect_ratio)
+            self.width_spin.setValue(new_width)
+        finally:
+            self._updating_spinbox = False
 
 class FunctionsPanel(QWidget):
     def __init__(self, parent=None):
