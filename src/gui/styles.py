@@ -125,7 +125,7 @@ class Styles:
     """
 
     INPUT_FIELD = """
-        QLineEdit, QTextEdit {
+        QLineEdit, QTextEdit, QSpinBox, QDoubleSpinBox {
             font-size: 13px;
             font-weight: 400;
             padding: 6px 8px;
@@ -134,12 +134,47 @@ class Styles:
             border: 1px solid #3a4255;
             border-radius: 4px;
         }
-        QLineEdit:focus, QTextEdit:focus {
+        QLineEdit:focus, QTextEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus {
             border: 1px solid #3b82f6;
             background-color: #242938;
         }
         QLineEdit::placeholder, QTextEdit::placeholder {
             color: #9ca3af;
+        }
+        /* Style SpinBox arrows - might need adjustments based on OS/theme */
+        QSpinBox::up-button, QDoubleSpinBox::up-button {
+            subcontrol-origin: border;
+            subcontrol-position: top right;
+            width: 16px;
+            border-left: 1px solid #3a4255;
+            border-bottom: 1px solid #3a4255;
+            border-top-right-radius: 4px;
+            background-color: #242938;
+        }
+        QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover {
+             background-color: #2d3446;
+        }
+        QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {
+            image: url(none); /* Hide default arrow if needed, replace with custom icon */
+            width: 10px;
+            height: 10px;
+        }
+        QSpinBox::down-button, QDoubleSpinBox::down-button {
+            subcontrol-origin: border;
+            subcontrol-position: bottom right;
+            width: 16px;
+            border-left: 1px solid #3a4255;
+            border-top: 1px solid #3a4255;
+            border-bottom-right-radius: 4px;
+            background-color: #242938;
+        }
+        QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {
+             background-color: #2d3446;
+        }
+        QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {
+            image: url(none); /* Hide default arrow if needed, replace with custom icon */
+            width: 10px;
+            height: 10px;
         }
     """
 

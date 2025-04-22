@@ -1,8 +1,9 @@
 import sys
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                               QHBoxLayout, QLabel, QMenuBar, QMenu, QStatusBar, QMessageBox,
-                              QFileDialog)
-from PySide6.QtCore import QTimer, QDateTime
+                              QFileDialog, QSplashScreen, QProgressBar)
+from PySide6.QtCore import QTimer, QDateTime, Qt
+from PySide6.QtGui import QPixmap, QScreen, QAction  # Added QAction
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
@@ -41,9 +42,11 @@ class MathPlotterApp(QMainWindow):
         upload_action = file_menu.addAction("Upload CSV")
         upload_action.triggered.connect(self.upload_csv)
         
-        # Add Generate Report action
-        generate_report_action = file_menu.addAction("Generate Report")
-        generate_report_action.triggered.connect(self._generate_report)
+        # Add Generate Report action (store reference)
+        self.generate_report_action = QAction("Generate Report", self)  # Create as QAction
+        self.generate_report_action.triggered.connect(self._generate_report)
+        self.generate_report_action.setEnabled(False)  # Initially disabled
+        file_menu.addAction(self.generate_report_action)  # Add the action
         
         file_menu.addSeparator()
         exit_action = file_menu.addAction("Exit")
@@ -213,6 +216,11 @@ class MathPlotterApp(QMainWindow):
         self.ax.set_xlim(0, 20)
         self.ax.set_ylim(0, 20)
         self.canvas.draw()
+
+    def update_report_action_state(self, enabled: bool):
+        """Enable or disable the Generate Report menu action."""
+        if hasattr(self, 'generate_report_action'):
+            self.generate_report_action.setEnabled(enabled)
 
     def upload_csv(self):
         # Forward to side menu's upload method which handles the data storage properly
@@ -581,6 +589,92 @@ class MathPlotterApp(QMainWindow):
 
 def main():
     app = QApplication(sys.argv)
+
+    # Get screen geometry
+    primary_screen = QApplication.primaryScreen()
+    if not primary_screen:
+        print("Error: Could not get primary screen information.")
+        # Fallback or exit
+        window = MathPlotterApp()
+        window.showMaximized()
+        sys.exit(app.exec())
+
+    # --- Splash Screen Setup ---
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    image_path = os.path.join(script_dir, '..', 'assets', 'ChatGPT Image Apr 22, 2025, 07_06_01 PM.png')
+
+    splash = None # Initialize splash to None
+    try:
+        original_pixmap = QPixmap(image_path)
+        if original_pixmap.isNull():
+            print(f"Error: Could not load splash image at {image_path}")
+        else:
+            # Scale the pixmap
+            scaled_pixmap = original_pixmap.scaled(600, 400, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            
+            # Create splash screen with scaled pixmap
+            splash = QSplashScreen(scaled_pixmap, Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
+            
+            # Center splash screen using Qt's native functions
+            screen_rect = primary_screen.geometry()
+            splash_geometry = splash.geometry()
+            center_point = screen_rect.center()
+            
+            # Set the splash screen position
+            splash_geometry.moveCenter(center_point)
+            splash.setGeometry(splash_geometry)
+
+            # Add a loading spinner
+            spinner = QProgressBar(splash)
+            spinner.setFixedSize(150, 2)  # Make it thin
+            spinner.setTextVisible(False)  # Hide percentage text
+            spinner.setRange(0, 0)  # Indeterminate mode
+            spinner.setStyleSheet("""
+                QProgressBar {
+                    background-color: rgba(0, 0, 0, 0.3);
+                    border: none;
+                    border-radius: 1px;
+                }
+                QProgressBar::chunk {
+                    background-color: #3b82f6;
+                    border-radius: 1px;
+                }
+            """)
+            
+            # Position the spinner at the bottom center
+            spinner_x = (scaled_pixmap.width() - spinner.width()) // 2
+            spinner_y = scaled_pixmap.height() - spinner.height() - 20
+            spinner.move(spinner_x, spinner_y)
+
+            # Add the loading text below the spinner
+            loading_label = QLabel("Loading...", splash)
+            loading_label.setAlignment(Qt.AlignCenter)
+            loading_label.setStyleSheet("""
+                QLabel {
+                    color: white;
+                    font-size: 14px;
+                    background-color: transparent;
+                    padding: 2px;
+                }
+            """)
+            loading_label.setGeometry(0, spinner_y - 25, scaled_pixmap.width(), 20)
+
+            splash.show()
+            app.processEvents()
+
+    except Exception as e:
+        print(f"Error creating splash screen: {e}")
+        if splash:
+            splash.close()
+        splash = None
+
+    # Create the main window
     window = MathPlotterApp()
-    window.show()
+
+    # Show main window maximized and close splash after delay
+    if splash:
+        QTimer.singleShot(5000, lambda: (splash.finish(window), window.showMaximized()))
+    else:
+        window.showMaximized()
+
     sys.exit(app.exec())
