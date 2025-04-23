@@ -124,6 +124,26 @@ class Styles:
         }
     """
 
+    BUTTON_SECONDARY = """
+        QPushButton {
+            background-color: #242938;
+            color: #e1e5ee;
+            font-weight: 500;
+            padding: 8px 16px;
+            border: 1px solid #3a4255;
+            border-radius: 6px;
+            font-size: 13px;
+            min-width: 100px;
+        }
+        QPushButton:hover {
+            background-color: #2d3446;
+            border-color: #3b82f6;
+        }
+        QPushButton:pressed {
+            background-color: #1a1f2d;
+        }
+    """
+
     INPUT_FIELD = """
         QLineEdit, QTextEdit, QSpinBox, QDoubleSpinBox {
             font-size: 13px;

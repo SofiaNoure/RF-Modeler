@@ -1,9 +1,9 @@
 import sys
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
-                              QHBoxLayout, QLabel, QMenuBar, QMenu, QStatusBar, QMessageBox,
-                              QFileDialog, QSplashScreen, QProgressBar)
+                              QHBoxLayout, QLabel, QStatusBar, QMessageBox,
+                              QFileDialog, QSplashScreen, QProgressBar)  # Removed QMenuBar, QMenu
 from PySide6.QtCore import QTimer, QDateTime, Qt
-from PySide6.QtGui import QPixmap, QScreen, QAction  # Added QAction
+from PySide6.QtGui import QPixmap, QAction  # Removed QScreen
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
@@ -16,6 +16,7 @@ from ..core.function_plotter import FunctionPlotter
 from .toolbar import CustomNavigationToolbar
 from .side_menu import SideMenu
 from .styles import Styles
+from ..utils.plot_utils import generate_heatmap_data, plot_regression_segments  # Import the new utility
 
 class MathPlotterApp(QMainWindow):
     def __init__(self):
@@ -295,16 +296,10 @@ class MathPlotterApp(QMainWindow):
             # Plot original data points
             ax_reg.scatter(x, y, s=30, alpha=0.5, color='blue')
             
-            # Plot segments with different colors
+            # Plot segments with different colors using the utility function
             num_segments = len(model.breakpoints_) - 1
             colors = plt.cm.viridis(np.linspace(0, 0.8, num_segments))
-            
-            for i in range(num_segments):
-                mask = (x_fine >= model.breakpoints_[i]) & (x_fine <= model.breakpoints_[i + 1])
-                if i < len(model.models_) and model.models_[i] is not None:
-                    # Plot fitted line for this segment
-                    ax_reg.semilogx(x_fine[mask], y_pred_fine[mask], '-', 
-                              linewidth=2, color=colors[i])
+            plot_regression_segments(ax_reg, model, x_fine, y_pred_fine, colors)
             
             # Add breakpoint indicators
             for i, bp in enumerate(model.breakpoints_[1:-1], 1):
@@ -333,38 +328,31 @@ class MathPlotterApp(QMainWindow):
             fig_heatmap = plt.figure(figsize=(8.5, 4))
             ax_hm = fig_heatmap.add_subplot(111)
             
-            grid_size = 500
-            x_min, x_max = x.min(), x.max()
-            y_min, y_max = y.min(), y.max()
-            
-            xi = np.linspace(x_min, x_max, grid_size)
-            Z = np.full(grid_size, np.max(y))
-            
-            for dist, loss in zip(x, y):
-                idx = np.abs(xi - dist).argsort()[:5]
-                distances = np.abs(xi[idx] - dist)
-                weights = 1 / (1 + distances)
-                weights = weights / np.sum(weights)
-                Z[idx] = np.minimum(Z[idx], loss)
+            # Use the utility function to generate heatmap data
+            heatmap_data = generate_heatmap_data(x, y)
+            if heatmap_data:
+                xi, Z, x_min, x_max, y_min, y_max = heatmap_data
+                Z_2d = np.tile(Z, (50, 1))
                 
-            Z_2d = np.tile(Z, (50, 1))
-            
-            im = ax_hm.imshow(Z_2d, 
-                           extent=[x_min, x_max, y_min, y_max],
-                           aspect='auto',
-                           origin='lower',
-                           cmap='RdYlBu_r')
-            
-            cbar = fig_heatmap.colorbar(im)
-            cbar.set_label('Path Loss (dB)', rotation=270, labelpad=15)
-            
-            ax_hm.scatter(x, [y_min + (y_max - y_min) * 0.5] * len(x), c=y, 
-                       cmap='RdYlBu_r', 
-                       s=50, 
-                       edgecolor='white')
-            
-            ax_hm.set_xlabel('Distance')
-            ax_hm.set_title('Path Loss Heatmap\nWarmer colors = Better signal (lower loss)')
+                im = ax_hm.imshow(Z_2d, 
+                               extent=[x_min, x_max, y_min, y_max],
+                               aspect='auto',
+                               origin='lower',
+                               cmap='RdYlBu_r')
+                
+                cbar = fig_heatmap.colorbar(im)
+                cbar.set_label('Path Loss (dB)', rotation=270, labelpad=15)
+                
+                ax_hm.scatter(x, [y_min + (y_max - y_min) * 0.5] * len(x), c=y, 
+                           cmap='RdYlBu_r', 
+                           s=50, 
+                           edgecolor='white')
+                
+                ax_hm.set_xlabel('Distance')
+                ax_hm.set_title('Path Loss Heatmap\nWarmer colors = Better signal (lower loss)')
+            else:
+                ax_hm.text(0.5, 0.5, "Insufficient data for heatmap", ha='center', va='center')
+                ax_hm.set_title("Heatmap Error")
             
             fig_heatmap.tight_layout(pad=1.1)
             pdf.savefig(fig_heatmap)
@@ -673,7 +661,7 @@ def main():
 
     # Show main window maximized and close splash after delay
     if splash:
-        QTimer.singleShot(5000, lambda: (splash.finish(window), window.showMaximized()))
+        QTimer.singleShot(2500, lambda: (splash.finish(window), window.showMaximized()))
     else:
         window.showMaximized()
 

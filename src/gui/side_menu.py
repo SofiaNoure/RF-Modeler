@@ -1,10 +1,10 @@
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, 
-                             QPushButton, QLabel, QLineEdit, QMenu, QWidgetAction,
+                             QPushButton, QLabel, 
                              QStackedWidget, QTextEdit, QFileDialog, QProgressBar,
-                             QSplitter, QScrollArea, QFrame, QDialog, QSpinBox, QCheckBox,
-                             QDoubleSpinBox, QApplication) # Added QApplication
-from PySide6.QtCore import Qt, QTimer, QRect
-from PySide6.QtGui import QKeySequence, QShortcut, QImage, QPixmap, QPainter, QPen, QColor
+                             QScrollArea, QFrame, QDialog, QSpinBox, QCheckBox,
+                             QDoubleSpinBox, QApplication)
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QKeySequence, QShortcut, QPixmap, QPainter, QPen, QColor
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -13,6 +13,7 @@ import io
 from ..core.regression_model import PiecewiseLogarithmicRegression
 from ..utils.data_loader import load_data_from_file
 from .styles import Styles
+from ..utils.plot_utils import generate_heatmap_data, plot_regression_segments
 
 class SelectableImageLabel(QLabel):
     def __init__(self, parent=None):
@@ -164,45 +165,10 @@ class ImageUploadDialog(QDialog):
         self.crop_btn.setStyleSheet(Styles.BUTTON_PRIMARY)
         
         self.ok_btn = QPushButton("Apply")
-        self.ok_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #3b82f6;
-                color: white;
-                font-weight: 500;
-                padding: 8px 16px;
-                border: none;
-                border-radius: 6px;
-                font-size: 13px;
-                min-width: 100px;
-            }
-            QPushButton:hover {
-                background-color: #2563eb;
-            }
-            QPushButton:pressed {
-                background-color: #1d4ed8;
-            }
-        """)
+        self.ok_btn.setStyleSheet(Styles.BUTTON_PRIMARY)
         
         self.cancel_btn = QPushButton("Cancel")
-        self.cancel_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #242938;
-                color: #e1e5ee;
-                font-weight: 500;
-                padding: 8px 16px;
-                border: 1px solid #3a4255;
-                border-radius: 6px;
-                font-size: 13px;
-                min-width: 100px;
-            }
-            QPushButton:hover {
-                background-color: #2d3446;
-                border-color: #3b82f6;
-            }
-            QPushButton:pressed {
-                background-color: #1a1f2d;
-            }
-        """)
+        self.cancel_btn.setStyleSheet(Styles.BUTTON_SECONDARY)
         
         button_layout.addWidget(self.resize_btn)
         button_layout.addWidget(self.crop_btn)
@@ -631,7 +597,7 @@ class SideMenu(QWidget):
         
         self.auto_btn = QPushButton("Auto")
         self.manual_btn = QPushButton("Manual")
-        self.other_btn = QPushButton("Other")
+        self.other_btn = QPushButton("Prediction")
 
         # Add tooltips to tab buttons
         self.auto_btn.setToolTip("Automatic regression modeling based on uploaded CSV data.")
@@ -665,7 +631,7 @@ class SideMenu(QWidget):
 
         upload_container = QWidget()
         upload_layout = QHBoxLayout(upload_container)
-        upload_layout.setContentsMargins(0, 0, 0, 5)
+        upload_layout.setContentsMargins(0, 0, 0, 5)    
 
         self.upload_btn = QPushButton("Upload File")
         self.upload_btn.setStyleSheet(Styles.BUTTON_PRIMARY)
@@ -838,7 +804,7 @@ class SideMenu(QWidget):
                 'ylim': self.parent.ax.get_ylim()
             }
 
-    def _apply_cached_view(self, cached_data=None):
+    def _apply_cached_view(self):
         """Apply cached view state or redraw plot"""
         if hasattr(self, '_cached_state'):
             self.is_heatmap = self._cached_state['is_heatmap']
@@ -1163,49 +1129,34 @@ class SideMenu(QWidget):
         x, y = self.csv_data
         
         # Validate data
-        if len(x) < 3:
+        heatmap_data = generate_heatmap_data(x, y)
+        if heatmap_data:
+            xi, Z, x_min, x_max, y_min, y_max = heatmap_data
+            Z_2d = np.tile(Z, (50, 1))
+            
+            im = self.parent.ax.imshow(Z_2d, 
+                                     extent=[x_min, x_max, y_min, y_max],
+                                     aspect='auto',
+                                     origin='lower',
+                                     cmap='RdYlBu_r')
+            
+            cbar = self.parent.figure.colorbar(im)
+            cbar.set_label('Path Loss (dB)', rotation=270, labelpad=15)
+            
+            self.parent.ax.scatter(x, [y_min + (y_max - y_min) * 0.5] * len(x), c=y, 
+                                 cmap='RdYlBu_r', 
+                                 s=50, 
+                                 edgecolor='white')
+            
+            self.parent.ax.set_xlabel('Distance')
+            self.parent.ax.set_ylabel('Path Loss (dB)')
+            self.parent.ax.set_title('Path Loss Heatmap\nWarmer colors = Better signal (lower loss)')
+        else:
+            # Handle case where utility function returns None (insufficient data)
             self.parent.ax.text(0.5, 0.5, 
                 "Need at least 3 data points for heatmap", 
                 ha='center', va='center', transform=self.parent.ax.transAxes)
             self.parent.ax.set_title("Insufficient Data")
-            return
-            
-        # Clear any existing colorbars before creating new plot
-        self.parent.figure.clear()
-        self.parent.ax = self.parent.figure.add_subplot(111)
-        
-        grid_size = 500
-        x_min, x_max = x.min(), x.max()
-        y_min, y_max = y.min(), y.max()
-        xi = np.linspace(x_min, x_max, grid_size)
-        Z = np.full(grid_size, np.max(y))
-        
-        for dist, loss in zip(x, y):
-            idx = np.abs(xi - dist).argsort()[:5]
-            distances = np.abs(xi[idx] - dist)
-            weights = 1 / (1 + distances)
-            weights = weights / np.sum(weights)
-            Z[idx] = np.minimum(Z[idx], loss)
-            
-        Z_2d = np.tile(Z, (50, 1))
-        
-        im = self.parent.ax.imshow(Z_2d, 
-                                 extent=[x_min, x_max, y_min, y_max],
-                                 aspect='auto',
-                                 origin='lower',
-                                 cmap='RdYlBu_r')
-        
-        cbar = self.parent.figure.colorbar(im)
-        cbar.set_label('Path Loss (dB)', rotation=270, labelpad=15)
-        
-        self.parent.ax.scatter(x, [y_min + (y_max - y_min) * 0.5] * len(x), c=y, 
-                             cmap='RdYlBu_r', 
-                             s=50, 
-                             edgecolor='white')
-        
-        self.parent.ax.set_xlabel('Distance')
-        self.parent.ax.set_ylabel('Path Loss (dB)')
-        self.parent.ax.set_title('Path Loss Heatmap\nWarmer colors = Better signal (lower loss)')
         
         # Use tight_layout with a bit more padding
         self.parent.figure.tight_layout(pad=1.1)
@@ -1254,18 +1205,15 @@ class SideMenu(QWidget):
         x_fine = np.logspace(np.log10(x.min()), np.log10(x.max()), 1000)
         y_pred_fine = model.predict(x_fine)
 
-        # Plot segments with confidence intervals
+        # Plot segments with confidence intervals using the utility function
         num_segments = len(model.breakpoints_) - 1
         colors = plt.cm.viridis(np.linspace(0, 0.8, num_segments))
+        plot_regression_segments(self.parent.ax, model, x_fine, y_pred_fine, colors)
 
+        # Plot confidence intervals (this part remains as it's specific to this plot)
         for i in range(num_segments):
             mask = (x_fine >= model.breakpoints_[i]) & (x_fine <= model.breakpoints_[i + 1])
             if i < len(model.models_) and model.models_[i] is not None:
-                # Plot fitted line for this segment
-                self.parent.ax.semilogx(x_fine[mask], y_pred_fine[mask], '-', 
-                                      linewidth=2, color=colors[i])
-                
-                # Get confidence intervals for this segment only
                 x_segment = x_fine[mask]
                 y_segment = y_pred_fine[mask]
                 if len(x_segment) > 0:

@@ -78,7 +78,7 @@ class SideMenu(QWidget):
         # Create buttons
         self.auto_btn = QPushButton("Auto")
         self.manual_btn = QPushButton("Manual")
-        self.other_btn = QPushButton("Other")
+        self.other_btn = QPushButton("Prediction")
         
         # Style buttons
         button_style = """
