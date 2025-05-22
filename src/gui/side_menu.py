@@ -1361,7 +1361,37 @@ class SideMenu(QWidget):
             self.plot_function()
         elif previous_tab == 1 and index in [0, 2, 3]:  # Switching FROM Manual
             self._apply_cached_view()
-        elif previous_tab in [0, 2, 3] and index in [0, 2, 3]:  # Between non-manual tabs
+        elif previous_tab in [0, 2] and index == 3:  # Switching TO Prediction
+            # Keep Auto tab's graph by re-plotting with current model
+            if self.current_model is not None:
+                # Store current view state
+                current_plot_state = {
+                    'xlim': self.parent.ax.get_xlim() if hasattr(self.parent, 'ax') else None,
+                    'ylim': self.parent.ax.get_ylim() if hasattr(self.parent, 'ax') else None,
+                    'is_heatmap': self.is_heatmap
+                }
+                
+                # Ensure we're in graph view for prediction
+                self.is_heatmap = False
+                self.view_toggle_btn.setText("Graph View")
+                self.view_toggle_btn.setChecked(False)
+                
+                # Replot using auto plot
+                self.auto_plot_function()
+                
+                # Restore view limits if they existed
+                if current_plot_state['xlim'] and hasattr(self.parent, 'ax'):
+                    self.parent.ax.set_xlim(current_plot_state['xlim'])
+                    self.parent.ax.set_ylim(current_plot_state['ylim'])
+                    self.parent.canvas.draw()
+        elif previous_tab == 3 and index == 0:  # Switching back to Auto from Prediction
+            # Restore previous Auto tab state
+            if hasattr(self, '_cached_state'):
+                self.is_heatmap = self._cached_state.get('is_heatmap', False)
+                self.view_toggle_btn.setText("Heatmap View" if self.is_heatmap else "Graph View")
+                self.view_toggle_btn.setChecked(self.is_heatmap)
+                self.auto_plot_function()
+        elif previous_tab in [0, 2, 3] and index in [0, 2]:  # Between Auto/Comparison tabs
             # Preserve plot state but update UI
             current_plot_state = {
                 'xlim': self.parent.ax.get_xlim() if hasattr(self.parent, 'ax') else None,
@@ -1389,8 +1419,13 @@ class SideMenu(QWidget):
             self.comparison_btn.setChecked(True)
         else:
             self.other_btn.setChecked(True)
-            
+
         self.stack.setCurrentIndex(index)
+        
+        # Ensure predict button state is correct
+        if index == 3:  # Prediction tab
+            self.predict_btn.setEnabled(self.current_model is not None)
+            self.prediction_result.setText("Enter a distance value above to predict path loss using the current model.")
 
     def _predict_path_loss(self):
         # Check if we have a model (redundant check, but safe)
