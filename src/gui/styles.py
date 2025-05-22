@@ -48,7 +48,8 @@ class Styles:
         QWidget {
             background-color: #242938;
             border: none;
-            padding: 10px;
+            padding: 6px;
+            margin: 0px;
         }
     """
 
@@ -72,7 +73,7 @@ class Styles:
 
     BUTTON_TAB = """
         QPushButton {
-            padding: 10px 20px;
+            padding: 8px 16px;
             background-color: #2d3446;
             color: #e1e5ee;
             border: none;

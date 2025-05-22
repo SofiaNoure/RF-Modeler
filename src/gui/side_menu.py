@@ -9,6 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
 import io
+import os
 
 from ..core.regression_model import PiecewiseLogarithmicRegression
 from ..utils.data_loader import load_data_from_file
@@ -586,6 +587,7 @@ class SideMenu(QWidget):
         self._create_stacked_widget()
         self._setup_auto_menu()
         self._setup_manual_menu()
+        self._setup_comparison_menu()
         self._setup_other_menu()
 
     def _create_tab_buttons(self):
@@ -597,14 +599,16 @@ class SideMenu(QWidget):
         
         self.auto_btn = QPushButton("Auto")
         self.manual_btn = QPushButton("Manual")
+        self.comparison_btn = QPushButton("Comparison")
         self.other_btn = QPushButton("Prediction")
 
         # Add tooltips to tab buttons
         self.auto_btn.setToolTip("Automatic regression modeling based on uploaded CSV data.")
         self.manual_btn.setToolTip("Plot mathematical functions manually.")
+        self.comparison_btn.setToolTip("Compare multiple datasets with regression models.")
         self.other_btn.setToolTip("Predict path loss using the fitted model or view other analyses.")
 
-        for btn in (self.auto_btn, self.manual_btn, self.other_btn):
+        for btn in (self.auto_btn, self.manual_btn, self.comparison_btn, self.other_btn):
             btn.setStyleSheet(Styles.BUTTON_TAB)
             btn.setCheckable(True)
             button_layout.addWidget(btn)
@@ -746,6 +750,81 @@ class SideMenu(QWidget):
         # Initialize background image storage
         self.background_image = None
 
+    def _setup_comparison_menu(self):
+        comparison_menu = QWidget()
+        comparison_layout = QVBoxLayout(comparison_menu)
+        comparison_layout.setSpacing(8)
+        comparison_layout.setContentsMargins(10, 10, 10, 10)
+
+        # List to store multiple datasets
+        self.datasets = []  # Will store tuples of (filename, x, y)
+        
+        # Button to add new dataset
+        button_container = QWidget()
+        button_layout = QHBoxLayout(button_container)
+        button_layout.setContentsMargins(0, 0, 0, 5)
+
+        self.add_dataset_btn = QPushButton("Add Dataset")
+        self.add_dataset_btn.setStyleSheet(Styles.BUTTON_PRIMARY)
+        self.add_dataset_btn.clicked.connect(self._add_dataset)
+        button_layout.addWidget(self.add_dataset_btn)
+
+        # Dataset list widget to show loaded files
+        self.dataset_list = QWidget()
+        self.dataset_list_layout = QVBoxLayout(self.dataset_list)
+        self.dataset_list_layout.setSpacing(5)
+        self.dataset_list_layout.setContentsMargins(0, 0, 0, 0)
+        self.dataset_list_layout.addStretch()
+
+        # Scroll area for dataset list
+        scroll = QScrollArea()
+        scroll.setWidget(self.dataset_list)
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("""
+            QScrollArea { 
+                border: none;
+                background: transparent;
+            }
+            QScrollArea > QWidget > QWidget {
+                background: transparent;
+            }
+            QScrollBar:vertical {
+                border: none;
+                background: #1a1f2d;
+                width: 8px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical {
+                background: #3b4253;
+                min-height: 20px;
+                border-radius: 4px;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                border: none;
+                background: none;
+            }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+                background: none;
+            }
+        """)
+
+        comparison_layout.addWidget(button_container)
+        comparison_layout.addWidget(scroll)
+
+        # Add apply button at the bottom
+        bottom_container = QWidget()
+        bottom_layout = QHBoxLayout(bottom_container)
+        bottom_layout.setContentsMargins(0, 5, 0, 0)
+
+        self.comparison_apply_btn = QPushButton("Apply")
+        self.comparison_apply_btn.setStyleSheet(Styles.BUTTON_PRIMARY)
+        self.comparison_apply_btn.clicked.connect(self._plot_comparison)
+        bottom_layout.addStretch()
+        bottom_layout.addWidget(self.comparison_apply_btn)
+
+        comparison_layout.addWidget(bottom_container)
+        self.stack.addWidget(comparison_menu)
+
     def _setup_other_menu(self):
         other_menu = QWidget()
         other_layout = QVBoxLayout(other_menu)
@@ -789,7 +868,8 @@ class SideMenu(QWidget):
     def _connect_signals(self):
         self.auto_btn.clicked.connect(lambda: self.show_menu(0))
         self.manual_btn.clicked.connect(lambda: self.show_menu(1))
-        self.other_btn.clicked.connect(lambda: self.show_menu(2))
+        self.comparison_btn.clicked.connect(lambda: self.show_menu(2))
+        self.other_btn.clicked.connect(lambda: self.show_menu(3))
         self.upload_btn.clicked.connect(self.upload_csv)
         self.view_toggle_btn.clicked.connect(self.toggle_view)
         self.apply_btn.clicked.connect(self.plot_function)
@@ -1264,10 +1344,11 @@ class SideMenu(QWidget):
         
         self.auto_btn.setChecked(False)
         self.manual_btn.setChecked(False)
+        self.comparison_btn.setChecked(False)
         self.other_btn.setChecked(False)
         
         # Cache view state when switching FROM Auto or Other tab
-        if previous_tab in [0, 2] and index == 1:  # Switching to Manual
+        if previous_tab in [0, 3] and index == 1:  # Switching to Manual
             # Store current view state
             self._cache_current_view()
             
@@ -1278,12 +1359,12 @@ class SideMenu(QWidget):
             
             self.parent.init_plot()
             self.plot_function()
-        elif previous_tab == 1 and index in [0, 2]:  # Switching FROM Manual TO Auto/Other
+        elif previous_tab == 1 and index in [0, 3]:  # Switching FROM Manual TO Auto/Other
             # Restore previous Auto/Other tab view
             self._apply_cached_view()
             # Ensure predict button state is correct based on whether a model exists
             self.predict_btn.setEnabled(self.current_model is not None)
-        elif previous_tab in [0, 2] and index in [0, 2]:  # Switching between Auto and Other
+        elif previous_tab in [0, 3] and index in [0, 3]:  # Switching between Auto and Other
             # Keep current view state, no need to reset
             # Ensure predict button state is correct
              self.predict_btn.setEnabled(self.current_model is not None)
@@ -1295,19 +1376,21 @@ class SideMenu(QWidget):
             self.auto_btn.setChecked(True)
         elif index == 1:
             self.manual_btn.setChecked(True)
+        elif index == 2:
+            self.comparison_btn.setChecked(True)
         else:
             self.other_btn.setChecked(True)
             
         self.stack.setCurrentIndex(index)
 
         # Update prediction display if switching to Other tab with a fitted model
-        if index == 2 and self.current_model is not None:
+        if index == 3 and self.current_model is not None:
             self.prediction_result.setText("Enter a distance value above to predict path loss using the current model.")
             self.predict_btn.setEnabled(True) # Ensure predict is enabled
             # Update the plot if a prediction point exists
             if hasattr(self.parent, 'ax'):
                 self.parent.canvas.draw()
-        elif index == 2: # Switching to Other tab without a model
+        elif index == 3: # Switching to Other tab without a model
              self.prediction_result.setText("Fit a model in the 'Auto' tab first to enable prediction.")
              self.predict_btn.setEnabled(False) # Ensure predict is disabled
 
@@ -1400,3 +1483,148 @@ class SideMenu(QWidget):
             
         except Exception as e:
             self.prediction_result.setText(f"Error: An unexpected error occurred.\n{str(e)}")
+
+    def _add_dataset(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Upload CSV File",
+            "",
+            "CSV Files (*.csv)"
+        )
+        
+        if file_path:
+            try:
+                x, y, _ = load_data_from_file(file_path)
+                filename = os.path.basename(file_path)
+                
+                # Create a container for this dataset
+                dataset_widget = QWidget()
+                dataset_widget.setStyleSheet("""
+                    QWidget {
+                        background-color: #242938;
+                        border-radius: 6px;
+                        margin: 2px 0px;
+                    }
+                    QWidget:hover {
+                        background-color: #2c334a;
+                    }
+                """)
+                dataset_layout = QHBoxLayout(dataset_widget)
+                dataset_layout.setContentsMargins(8, 8, 8, 8)
+                
+                # Add file icon and name in a sub-container
+                file_info_container = QWidget()
+                file_info_layout = QHBoxLayout(file_info_container)
+                file_info_layout.setContentsMargins(0, 0, 0, 0)
+                file_info_layout.setSpacing(8)
+                
+                # Add file icon
+                file_icon = QLabel("📄")
+                file_icon.setStyleSheet("color: #61afef; font-size: 14px;")
+                file_info_layout.addWidget(file_icon)
+                
+                # Add filename label
+                label = QLabel(filename)
+                label.setStyleSheet("color: #e1e5ee; font-size: 13px;")
+                file_info_layout.addWidget(label)
+                
+                dataset_layout.addWidget(file_info_container)
+                dataset_layout.addStretch()
+                
+                # Add remove button
+                remove_btn = QPushButton("✕")
+                remove_btn.setFixedSize(24, 24)
+                remove_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: #1e2433;
+                        color: #e1e5ee;
+                        border: none;
+                        border-radius: 12px;
+                        font-size: 14px;
+                        padding: 0px;
+                    }
+                    QPushButton:hover {
+                        background-color: #c94b4b;
+                        color: white;
+                    }
+                """)
+                remove_btn.clicked.connect(lambda checked, w=dataset_widget: self._remove_dataset(w))
+                dataset_layout.addWidget(remove_btn)
+                
+                # Insert new dataset widget before the stretch
+                self.dataset_list_layout.insertWidget(self.dataset_list_layout.count() - 1, dataset_widget)
+                
+                # Store the dataset
+                self.datasets.append((filename, x, y))
+                
+            except Exception as e:
+                self.parent.statusBar.showMessage(f"Error loading CSV file: {str(e)}", 5000)
+
+    def _remove_dataset(self, widget):
+        # Find the index of the widget
+        index = self.dataset_list_layout.indexOf(widget)
+        if index >= 0:
+            # Remove the widget
+            widget.deleteLater()
+            # Remove the corresponding dataset
+            if index < len(self.datasets):
+                self.datasets.pop(index)
+
+    def _plot_comparison(self):
+        if not self.datasets:
+            self.parent.statusBar.showMessage("Please add at least one dataset first", 5000)
+            return
+
+        try:
+            self.parent.figure.clear()
+            self.parent.ax = self.parent.figure.add_subplot(111)
+            
+            # Generate colors for different datasets
+            colors = plt.cm.tab10(np.linspace(0, 1, len(self.datasets)))
+            
+            for (filename, x, y), color in zip(self.datasets, colors):
+                # Create and fit model
+                model = PiecewiseLogarithmicRegression(
+                    max_breakpoints=self.max_input.value(),
+                    min_segment_length=self.min_input.value(),
+                    tolerance=self.tolerance_input.value()
+                )
+                model.fit(x, y)
+                
+                # Plot original points (without label)
+                self.parent.ax.scatter(x, y, s=30, alpha=0.5, color=color)
+                
+                # Plot regression line with single label for both
+                x_fine = np.logspace(np.log10(x.min()), np.log10(x.max()), 1000)
+                y_pred = model.predict(x_fine)
+                self.parent.ax.semilogx(x_fine, y_pred, '-', color=color, linewidth=2, label=filename)
+
+            # Enhance the plot
+            self.parent.ax.grid(True, which='both', alpha=0.2)
+            self.parent.ax.grid(True, which='major', alpha=0.5)
+            self.parent.ax.set_xlabel('Distance (log scale)')
+            self.parent.ax.set_ylabel('Path Loss (dB)')
+            
+            # Create a small, compact legend
+            legend = self.parent.ax.legend(
+                fontsize='x-small',  # Smaller font
+                frameon=True,        # Show frame
+                framealpha=0.8,      # Semi-transparent background
+                edgecolor='#1a1f2d', # Dark border
+                facecolor='white',   # White background
+                loc='upper right',   # Position in upper right
+                borderpad=0.4,       # Smaller padding inside
+                handlelength=1.0,    # Shorter lines
+                handletextpad=0.4,   # Less space between handle and text
+                borderaxespad=0.4,   # Closer to the plot
+                markerscale=0.7      # Smaller markers
+            )
+            
+            self.parent.ax.set_title('Dataset Comparison')
+            
+            # Adjust layout and draw
+            self.parent.figure.tight_layout()
+            self.parent.canvas.draw()
+            
+        except Exception as e:
+            self.parent.statusBar.showMessage(f"Error plotting comparison: {str(e)}", 5000)
