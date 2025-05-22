@@ -1029,6 +1029,7 @@ class SideMenu(QWidget):
             
             # Plot the function with higher zorder to appear above the background
             self.parent.ax.plot(x, y, 'b-', linewidth=2, zorder=2)
+            self.parent.ax.invert_yaxis()  # Invert y-axis for path loss
             
             # Enhanced grid with proper z-order
             self.parent.ax.grid(True, which='major', linestyle='-', alpha=0.5, zorder=1)
@@ -1217,7 +1218,7 @@ class SideMenu(QWidget):
             im = self.parent.ax.imshow(Z_2d, 
                                      extent=[x_min, x_max, y_min, y_max],
                                      aspect='auto',
-                                     origin='lower',
+                                     origin='upper',  # This inverts the y-axis for heatmap
                                      cmap='RdYlBu_r')
             
             cbar = self.parent.figure.colorbar(im)
@@ -1289,6 +1290,9 @@ class SideMenu(QWidget):
         num_segments = len(model.breakpoints_) - 1
         colors = plt.cm.viridis(np.linspace(0, 0.8, num_segments))
         plot_regression_segments(self.parent.ax, model, x_fine, y_pred_fine, colors)
+
+        # Ensure y-axis is inverted
+        self.parent.ax.invert_yaxis()
 
         # Plot confidence intervals (this part remains as it's specific to this plot)
         for i in range(num_segments):

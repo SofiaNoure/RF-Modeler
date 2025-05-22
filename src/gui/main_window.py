@@ -212,10 +212,10 @@ class MathPlotterApp(QMainWindow):
         self.ax.axhline(y=0, color='k', linestyle='-', alpha=0.3)
         self.ax.axvline(x=0, color='k', linestyle='-', alpha=0.3)
         self.ax.set_xlabel('x')
-        self.ax.set_ylabel('y')
+        self.ax.set_ylabel('Path Loss (dB)')
         self.ax.set_title('Function Plot')
         self.ax.set_xlim(0, 20)
-        self.ax.set_ylim(0, 20)
+        self.ax.set_ylim(20, 0)  # Inverted y-axis
         self.canvas.draw()
 
     def update_report_action_state(self, enabled: bool):
@@ -315,6 +315,7 @@ class MathPlotterApp(QMainWindow):
             ax_reg.set_ylabel('Path Loss (dB)')
             ax_reg.grid(True, which='both', alpha=0.2)
             ax_reg.grid(True, which='major', alpha=0.5)
+            ax_reg.invert_yaxis()  # Invert y-axis for path loss
             
             title = 'Piecewise Logarithmic Regression'
             stats = f'R² = {model.r2_:.4f} | MSE = {model.mse_:.4f} | Segments = {num_segments}'
