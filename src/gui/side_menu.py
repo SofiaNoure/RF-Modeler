@@ -1351,31 +1351,36 @@ class SideMenu(QWidget):
         self.comparison_btn.setChecked(False)
         self.other_btn.setChecked(False)
         
-        # Cache view state when switching FROM Auto or Other tab
-        if previous_tab in [0, 3] and index == 1:  # Switching to Manual
-            # Store current view state
+        # Cache view state when switching FROM Auto, Comparison or Other tab
+        if previous_tab in [0, 2, 3] and index == 1:  # Switching to Manual
             self._cache_current_view()
-            
-            # Reset to graph view in UI only
             self.is_heatmap = False
             self.view_toggle_btn.setText("Graph View")
             self.view_toggle_btn.setChecked(False)
-            
             self.parent.init_plot()
             self.plot_function()
-        elif previous_tab == 1 and index in [0, 3]:  # Switching FROM Manual TO Auto/Other
-            # Restore previous Auto/Other tab view
+        elif previous_tab == 1 and index in [0, 2, 3]:  # Switching FROM Manual
             self._apply_cached_view()
-            # Ensure predict button state is correct based on whether a model exists
-            self.predict_btn.setEnabled(self.current_model is not None)
-        elif previous_tab in [0, 3] and index in [0, 3]:  # Switching between Auto and Other
-            # Keep current view state, no need to reset
-            # Ensure predict button state is correct
-             self.predict_btn.setEnabled(self.current_model is not None)
-        else: # Switching from Auto/Other to Manual
-             self.predict_btn.setEnabled(False) # Cannot predict in manual mode
+        elif previous_tab in [0, 2, 3] and index in [0, 2, 3]:  # Between non-manual tabs
+            # Preserve plot state but update UI
+            current_plot_state = {
+                'xlim': self.parent.ax.get_xlim() if hasattr(self.parent, 'ax') else None,
+                'ylim': self.parent.ax.get_ylim() if hasattr(self.parent, 'ax') else None
+            }
+            
+            # Update UI and replot as needed
+            if index == 0:
+                self.auto_plot_function()
+            elif index == 2:
+                self._plot_comparison()
+            
+            # Restore view limits if they existed
+            if current_plot_state['xlim'] and hasattr(self.parent, 'ax'):
+                self.parent.ax.set_xlim(current_plot_state['xlim'])
+                self.parent.ax.set_ylim(current_plot_state['ylim'])
+                self.parent.canvas.draw()
 
-        # Update the active tab button
+        # Update active button and tab
         if index == 0:
             self.auto_btn.setChecked(True)
         elif index == 1:
@@ -1386,17 +1391,6 @@ class SideMenu(QWidget):
             self.other_btn.setChecked(True)
             
         self.stack.setCurrentIndex(index)
-
-        # Update prediction display if switching to Other tab with a fitted model
-        if index == 3 and self.current_model is not None:
-            self.prediction_result.setText("Enter a distance value above to predict path loss using the current model.")
-            self.predict_btn.setEnabled(True) # Ensure predict is enabled
-            # Update the plot if a prediction point exists
-            if hasattr(self.parent, 'ax'):
-                self.parent.canvas.draw()
-        elif index == 3: # Switching to Other tab without a model
-             self.prediction_result.setText("Fit a model in the 'Auto' tab first to enable prediction.")
-             self.predict_btn.setEnabled(False) # Ensure predict is disabled
 
     def _predict_path_loss(self):
         # Check if we have a model (redundant check, but safe)
@@ -1580,6 +1574,7 @@ class SideMenu(QWidget):
             return
 
         try:
+            # Setup plot
             self.parent.figure.clear()
             self.parent.ax = self.parent.figure.add_subplot(111)
             
@@ -1587,7 +1582,7 @@ class SideMenu(QWidget):
             colors = plt.cm.tab10(np.linspace(0, 1, len(self.datasets)))
             
             for (filename, x, y), color in zip(self.datasets, colors):
-                # Create and fit model
+                # Create and fit model with current parameters
                 model = PiecewiseLogarithmicRegression(
                     max_breakpoints=self.max_input.value(),
                     min_segment_length=self.min_input.value(),
@@ -1595,40 +1590,72 @@ class SideMenu(QWidget):
                 )
                 model.fit(x, y)
                 
-                # Plot original points (without label)
+                # Plot original points
                 self.parent.ax.scatter(x, y, s=30, alpha=0.5, color=color)
                 
-                # Plot regression line with single label for both
-                x_fine = np.logspace(np.log10(x.min()), np.log10(x.max()), 1000)
+                # Generate x values strictly within data range
+                x_fine = np.logspace(np.log10(np.min(x)), np.log10(np.max(x)), 1000)
                 y_pred = model.predict(x_fine)
-                self.parent.ax.semilogx(x_fine, y_pred, '-', color=color, linewidth=2, label=filename)
+                
+                # Plot segments with confidence intervals
+                num_segments = len(model.breakpoints_) - 1
+                for i in range(num_segments):
+                    mask = (x_fine >= model.breakpoints_[i]) & (x_fine <= model.breakpoints_[i + 1])
+                    if i < len(model.models_) and model.models_[i] is not None:
+                        x_segment = x_fine[mask]
+                        y_segment = y_pred[mask]
+                        self.parent.ax.semilogx(x_segment, y_segment, '-', 
+                                              linewidth=2, color=color)
+                        
+                        # Add confidence intervals
+                        if len(x_segment) > 0:
+                            intervals = model.get_confidence_intervals(x_segment)
+                            for interval_mask, interval in intervals:
+                                if len(interval) == len(x_segment):
+                                    self.parent.ax.fill_between(
+                                        x_segment,
+                                        y_segment - interval,
+                                        y_segment + interval,
+                                        color=color, alpha=0.1
+                                    )
+                
+                # Add breakpoint indicators
+                for i, bp in enumerate(model.breakpoints_[1:-1], 1):
+                    self.parent.ax.axvline(bp, color=color, linestyle='--', 
+                                         alpha=0.3, linewidth=1)
+                
+                # Add dataset to legend
+                self.parent.ax.plot([], [], '-', color=color, linewidth=2,
+                                  label=f'{filename} (R²={model.r2_:.3f})')
 
-            # Enhance the plot
+            # Enhance plot style
             self.parent.ax.grid(True, which='both', alpha=0.2)
             self.parent.ax.grid(True, which='major', alpha=0.5)
             self.parent.ax.set_xlabel('Distance (log scale)')
             self.parent.ax.set_ylabel('Path Loss (dB)')
+            self.parent.ax.invert_yaxis()  # Invert y-axis for path loss
             
-            # Create a small, compact legend
+            # Create compact legend
             legend = self.parent.ax.legend(
-                fontsize='x-small',  # Smaller font
-                frameon=True,        # Show frame
-                framealpha=0.8,      # Semi-transparent background
-                edgecolor='#1a1f2d', # Dark border
-                facecolor='white',   # White background
-                loc='upper right',   # Position in upper right
-                borderpad=0.4,       # Smaller padding inside
-                handlelength=1.0,    # Shorter lines
-                handletextpad=0.4,   # Less space between handle and text
-                borderaxespad=0.4,   # Closer to the plot
-                markerscale=0.7      # Smaller markers
+                fontsize='x-small',
+                frameon=True,
+                framealpha=0.8,
+                edgecolor='#1a1f2d',
+                facecolor='white',
+                loc='upper right',
+                borderpad=0.4,
+                handlelength=1.0,
+                handletextpad=0.4,
+                borderaxespad=0.4,
+                markerscale=0.7
             )
             
             self.parent.ax.set_title('Dataset Comparison')
             
-            # Adjust layout and draw
+            # Update layout and draw
             self.parent.figure.tight_layout()
             self.parent.canvas.draw()
             
         except Exception as e:
             self.parent.statusBar.showMessage(f"Error plotting comparison: {str(e)}", 5000)
+            print(f"Comparison plot error: {e}")
