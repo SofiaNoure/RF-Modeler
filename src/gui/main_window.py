@@ -169,8 +169,10 @@ class MathPlotterApp(QMainWindow):
         # Side menu (1/3 of width)
         self.side_menu = SideMenu(self)
         
-        content_layout.addWidget(graph_container, stretch=2)
-        content_layout.addWidget(self.side_menu, stretch=1)
+        content_layout.addWidget(graph_container, stretch=362)
+        content_layout.addWidget(self.side_menu, stretch=100)
+        content_layout.setStretchFactor(graph_container, 362)
+        content_layout.setStretchFactor(self.side_menu, 100)
         main_layout.addLayout(content_layout)
 
     def _setup_status_bar(self):
@@ -302,14 +304,14 @@ class MathPlotterApp(QMainWindow):
             plot_regression_segments(ax_reg, model, x_fine, y_pred_fine, colors)
             
             # Add breakpoint indicators
-            for i, bp in enumerate(model.breakpoints_[1:-1], 1):
-                ax_reg.axvline(bp, color='k', linestyle='--', alpha=0.5, linewidth=1)
-                # Add breakpoint value annotation
-                y_pos = np.interp(bp, x_fine, y_pred_fine)
-                ax_reg.annotate(f'BP{i}\n({bp:.1f})', 
-                              (bp, y_pos),
-                              xytext=(5, 5), textcoords='offset points',
-                              fontsize=8, bbox=dict(facecolor='white', alpha=0.7))
+            # for i, bp in enumerate(model.breakpoints_[1:-1], 1):
+            #     ax_reg.axvline(bp, color='k', linestyle='--', alpha=0.5, linewidth=1)
+            #     # Add breakpoint value annotation
+            #     y_pos = np.interp(bp, x_fine, y_pred_fine)
+            #     ax_reg.annotate(f'BP{i}\n({bp:.1f})', 
+            #                   (bp, y_pos),
+            #                   xytext=(5, 5), textcoords='offset points',
+            #                   fontsize=8, bbox=dict(facecolor='white', alpha=0.7))
             
             ax_reg.set_xlabel('Distance (log scale)')
             ax_reg.set_ylabel('Path Loss (dB)')

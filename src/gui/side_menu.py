@@ -647,6 +647,12 @@ class SideMenu(QWidget):
         upload_layout.addStretch()
         auto_layout.addWidget(upload_container)
 
+        # Create view toggle button
+        self.view_toggle_btn = QPushButton("Graph View")
+        self.view_toggle_btn.setStyleSheet(Styles.BUTTON_PRIMARY)
+        self.view_toggle_btn.setToolTip("Switch between graph and heatmap visualization")
+        self.view_toggle_btn.setCheckable(True)
+
         # Parameter inputs with consistent styling
         parameters = [
             ("MAX - Breaking points:", "Max number of segments (integer)", self.max_input),
@@ -674,17 +680,9 @@ class SideMenu(QWidget):
 
         button_container = QWidget()
         button_layout = QHBoxLayout(button_container)
-        button_layout.setContentsMargins(0, 5, 0, 0)
+        button_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.view_toggle_btn = QPushButton("Graph View")
-        self.view_toggle_btn.setCheckable(True)
-        self.view_toggle_btn.setStyleSheet(Styles.BUTTON_TOGGLE)
-        self.view_toggle_btn.setToolTip("Toggle between Graph and Heatmap views (Ctrl+T)")
         button_layout.addWidget(self.view_toggle_btn)
-
-        self.view_shortcut = QShortcut(QKeySequence("Ctrl+T"), self)
-        self.view_shortcut.activated.connect(self.toggle_view)
-        
         button_layout.addWidget(self.loading_bar)
         button_layout.addStretch()
         
@@ -694,6 +692,20 @@ class SideMenu(QWidget):
         button_layout.addWidget(self.auto_apply_btn)
         
         auto_layout.addWidget(button_container)
+
+        # Add display function button at the bottom
+        display_function_container = QWidget()
+        display_function_layout = QHBoxLayout(display_function_container)
+        display_function_layout.setContentsMargins(0, 10, 0, 0)  # Add top margin
+        
+        self.display_function_btn = QPushButton("Display Function")
+        self.display_function_btn.setStyleSheet(Styles.BUTTON_PRIMARY)
+        self.display_function_btn.setEnabled(False)  # Initially disabled until model is fitted
+        self.display_function_btn.setToolTip("View the fitted mathematical function")  # Add tooltip
+        self.display_function_btn.clicked.connect(self._show_universal_function)
+        display_function_layout.addWidget(self.display_function_btn)
+
+        auto_layout.addWidget(display_function_container)
         auto_layout.addStretch()
         
         self.stack.addWidget(auto_menu)
@@ -1176,6 +1188,8 @@ class SideMenu(QWidget):
                     # If model fitting failed within _plot_regression (e.g., insufficient data)
                     self.parent.statusBar.showMessage("Model fitting failed.", 5000)
 
+                # Enable display function button if model is fitted
+                self.display_function_btn.setEnabled(self.current_model is not None)
 
             self.parent.canvas.draw()
 
@@ -1189,6 +1203,7 @@ class SideMenu(QWidget):
             self.parent.statusBar.showMessage(f"Error: Invalid input - {str(e)}", 5000)
             self.predict_btn.setEnabled(False) # Disable predict on error
             self.parent.update_report_action_state(False) # Disable report on error
+            self.display_function_btn.setEnabled(False) # Disable display function button on error
 
         finally:
             # Hide loading bar and re-enable button regardless of success/failure
@@ -1270,6 +1285,8 @@ class SideMenu(QWidget):
         )
         model.fit(x, y)
         self.current_model = model
+        # Enable the display function button since we have a fitted model
+        self.display_function_btn.setEnabled(True)
 
         # Clear the figure for the enhanced plot
         self.parent.figure.clear()
@@ -1694,3 +1711,48 @@ class SideMenu(QWidget):
         except Exception as e:
             self.parent.statusBar.showMessage(f"Error plotting comparison: {str(e)}", 5000)
             print(f"Comparison plot error: {e}")
+
+    def _show_universal_function(self):
+        """Show the universal function in a formatted dialog"""
+        if not self.current_model:
+            return
+            
+        try:
+            # Get the universal function from the model
+            function_str = self.current_model.get_universal_function()
+            
+            # Create and show the expression widget
+            from .show_function import MathExpressionWidget
+            dialog = QDialog(self)
+            dialog.setWindowTitle("Model Universal Function")
+            dialog.setModal(True)
+            dialog.setMinimumWidth(800)
+            dialog.setMinimumHeight(400)
+            dialog.setStyleSheet("""
+                QDialog {
+                    background-color: #1a1f2d;
+                }
+            """)
+            
+            layout = QVBoxLayout(dialog)
+            layout.setSpacing(15)
+            layout.setContentsMargins(20, 20, 20, 20)
+            
+            # Add the math expression widget
+            expr_widget = MathExpressionWidget()
+            expr_widget.set_expression(function_str)
+            layout.addWidget(expr_widget)
+            
+            # Add buttons
+            button_container = QHBoxLayout()
+            close_btn = QPushButton("Close")
+            close_btn.setStyleSheet(Styles.BUTTON_SECONDARY)
+            close_btn.clicked.connect(dialog.close)
+            button_container.addStretch()
+            button_container.addWidget(close_btn)
+            layout.addLayout(button_container)
+            
+            dialog.exec()
+        except Exception as e:
+            self.parent.statusBar.showMessage(f"Error displaying function: {str(e)}", 5000)
+            print(f"Error in _show_universal_function: {e}")
