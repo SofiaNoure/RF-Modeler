@@ -97,6 +97,15 @@ class Styles:
         }
     """
 
+    LABEL_TITLE = """
+        QLabel {
+            color: #e1e5ee;
+            font-size: 14px;
+            font-weight: bold;
+            padding: 4px 0px;
+        }
+    """
+
     BUTTON_TOGGLE = """
         QPushButton {
             background-color: #3b82f6;
@@ -241,6 +250,34 @@ class Styles:
         QPushButton:checked {
             background-color: #3a4255;
             border-left: 3px solid #3b82f6;
+        }
+    """
+
+    PLOT_MODE_BUTTON = """
+        QRadioButton {
+            padding: 8px 16px;
+            background-color: #2d3446;
+            color: #e1e5ee;
+            border: none;
+            border-radius: 6px;
+            font-weight: 500;
+            font-size: 13px;
+            min-width: 100px;
+        }
+        QRadioButton:hover {
+            background-color: #3a4255;
+        }
+        QRadioButton:pressed {
+            background-color: #242938;
+        }
+        QRadioButton:checked {
+            background-color: #242938;
+            border: 2px solid #3b82f6;
+            color: #3b82f6;
+        }
+        QRadioButton::indicator {
+            width: 0px;
+            height: 0px;
         }
     """
 

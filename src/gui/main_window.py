@@ -21,12 +21,15 @@ from ..utils.plot_utils import generate_heatmap_data, plot_regression_segments  
 class MathPlotterApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Project 19")
-        self.setMinimumSize(1000, 700)
-        self.setStyleSheet(Styles.MAIN_WINDOW)
         
-        self._setup_menu_bar()
+        # Store background for blitting
+        self._background = None
+        self._need_draw = True
+        
+        # Initialize UI components
+        self._initialize_window()
         self._initialize_plotter()
+        self._setup_menu_bar()
         self._setup_central_widget()
         self._setup_status_bar()
         self._setup_timer()
@@ -34,6 +37,11 @@ class MathPlotterApp(QMainWindow):
         
         # Initialize with empty plot
         self.init_plot()
+
+    def _initialize_window(self):
+        self.setWindowTitle("Project 19")
+        self.setMinimumSize(1000, 700)
+        self.setStyleSheet(Styles.MAIN_WINDOW)
 
     def _setup_menu_bar(self):
         menubar = self.menuBar()
@@ -107,25 +115,14 @@ class MathPlotterApp(QMainWindow):
         self.canvas.draw_idle()
 
     def _reset_view(self):
-        """Reset to original view"""
+        """Reset the view to default range"""
         if not hasattr(self, 'ax') or self.ax is None:
             return
             
-        # Get current tab
-        current_tab = self.side_menu.stack.currentIndex()
-        
-        if current_tab == 0:  # Auto tab
-            # Replot with cached view if available
-            if hasattr(self.side_menu, '_cached_state'):
-                self.side_menu._apply_cached_view()
-            else:
-                self.side_menu.auto_plot_function()
-        else:  # Manual tab
-            function_str = self.side_menu.function_input.toPlainText().strip()
-            if function_str:
-                self.side_menu.plot_function()
-            else:
-                self.init_plot()
+        self.ax.set_xlim(-20, 20)
+        self.ax.set_ylim(-20, 20)
+        self._need_draw = True
+        self.canvas.draw()
 
     def _show_about_dialog(self):
         """Show about dialog with mock data"""
@@ -146,9 +143,28 @@ class MathPlotterApp(QMainWindow):
 
     def _initialize_plotter(self):
         self.function_plotter = FunctionPlotter()
-        self.figure = Figure(constrained_layout=True)  # Enable constrained_layout for better spacing
+        self.figure = Figure(constrained_layout=True)
         self.canvas = FigureCanvas(self.figure)
         self.toolbar = CustomNavigationToolbar(self.canvas, self)
+        
+        # Connect events for blitting
+        self.canvas.mpl_connect('draw_event', self._on_draw)
+        self.canvas.mpl_connect('resize_event', self._on_resize)
+        
+        # Connect mouse events
+        self.canvas.mpl_connect('motion_notify_event', self.on_mouse_move)
+        self.canvas.mpl_connect('button_press_event', self.on_mouse_click)
+        self.canvas.mpl_connect('scroll_event', self.on_mouse_wheel)
+
+    def _on_draw(self, event):
+        """Capture the background on draw events"""
+        if self._need_draw:
+            self._background = self.canvas.copy_from_bbox(self.ax.bbox)
+            self._need_draw = False
+
+    def _on_resize(self, event):
+        """Force background recapture on resize"""
+        self._need_draw = True
 
     def _setup_central_widget(self):
         central_widget = QWidget()
@@ -192,9 +208,7 @@ class MathPlotterApp(QMainWindow):
         self.update_datetime()
 
     def _connect_signals(self):
-        self.canvas.mpl_connect('motion_notify_event', self.on_mouse_move)
-        self.canvas.mpl_connect('button_press_event', self.on_mouse_click)
-        self.canvas.mpl_connect('scroll_event', self.on_mouse_wheel)
+        pass  # Signals are now connected in _initialize_plotter
 
     def update_datetime(self):
         current_datetime = QDateTime.currentDateTime()
@@ -302,16 +316,6 @@ class MathPlotterApp(QMainWindow):
             num_segments = len(model.breakpoints_) - 1
             colors = plt.cm.viridis(np.linspace(0, 0.8, num_segments))
             plot_regression_segments(ax_reg, model, x_fine, y_pred_fine, colors)
-            
-            # Add breakpoint indicators
-            # for i, bp in enumerate(model.breakpoints_[1:-1], 1):
-            #     ax_reg.axvline(bp, color='k', linestyle='--', alpha=0.5, linewidth=1)
-            #     # Add breakpoint value annotation
-            #     y_pos = np.interp(bp, x_fine, y_pred_fine)
-            #     ax_reg.annotate(f'BP{i}\n({bp:.1f})', 
-            #                   (bp, y_pos),
-            #                   xytext=(5, 5), textcoords='offset points',
-            #                   fontsize=8, bbox=dict(facecolor='white', alpha=0.7))
             
             ax_reg.set_xlabel('Distance (log scale)')
             ax_reg.set_ylabel('Path Loss (dB)')
@@ -558,6 +562,7 @@ class MathPlotterApp(QMainWindow):
         if not event.inaxes:
             return
             
+        # Calculate zoom
         cur_xlim = self.ax.get_xlim()
         cur_ylim = self.ax.get_ylim()
         xdata, ydata = event.xdata, event.ydata
@@ -565,6 +570,7 @@ class MathPlotterApp(QMainWindow):
         base_scale = 1.1
         scale_factor = 1 / base_scale if event.button == 'up' else base_scale
         
+        # Calculate new limits
         new_xlim = [
             xdata - (xdata - cur_xlim[0]) * scale_factor,
             xdata + (cur_xlim[1] - xdata) * scale_factor
@@ -574,9 +580,17 @@ class MathPlotterApp(QMainWindow):
             ydata + (cur_ylim[1] - ydata) * scale_factor
         ]
         
+        # Update limits
         self.ax.set_xlim(new_xlim)
         self.ax.set_ylim(new_ylim)
-        self.canvas.draw_idle()
+        
+        # Use blitting for faster redraw
+        if self._background is not None:
+            self.canvas.restore_region(self._background)
+            self.ax.draw_artist(self.ax)
+            self.canvas.blit(self.ax.bbox)
+        else:
+            self.canvas.draw_idle()
 
 def main():
     app = QApplication(sys.argv)

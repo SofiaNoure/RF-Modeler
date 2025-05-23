@@ -1,0 +1,853 @@
+\documentclass[12pt,a4paper]{report}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{tcolorbox}
+\usepackage{minted}
+
+% Define colors for syntax highlighting
+\definecolor{codegray}{rgb}{0.95,0.95,0.95}
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+% Python code listing settings
+\lstset{
+    language=Python,
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{gray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=4
+}
+
+\title{RF-Modeler: Technical Documentation}
+\author{Documentation generated on May 22, 2025}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+\chapter{Introduction}
+RF-Modeler is a sophisticated application designed for modeling and visualizing mathematical functions and data, with a particular focus on radio frequency (RF) signal analysis. The application features a modern graphical user interface built with PySide6 and incorporates advanced mathematical modeling capabilities.
+
+\chapter{Project Structure}
+The project follows a modular architecture with clear separation of concerns:
+
+\begin{itemize}
+    \item \textbf{src/} - Main source code directory
+    \begin{itemize}
+        \item \textbf{core/} - Core mathematical and plotting functionality
+        \item \textbf{gui/} - Graphical user interface components
+        \item \textbf{utils/} - Utility functions and helpers
+        \item \textbf{assets/} - Application resources and icons
+    \end{itemize}
+    \item \textbf{App.py} - Main application entry point
+    \item \textbf{build\_linux.sh} - Linux build script
+    \item \textbf{build\_windows.bat} - Windows build script
+    \item \textbf{requirements.txt} - Python dependencies
+\end{itemize}
+
+\chapter{Core Module}
+\section{Function Plotter}
+The FunctionPlotter class in \texttt{src/core/function\_plotter.py} is responsible for mathematical function plotting and evaluation.
+
+\begin{tcolorbox}[title=FunctionPlotter Class]
+\begin{lstlisting}[language=Python]
+class FunctionPlotter:
+    def __init__(self):
+        # Initialization with display ranges and calculation parameters
+        self.full_range = (-10000, 10000)  # Full calculation range
+        self.display_range = (-20, 20)      # Default visible range
+        self.num_points = {
+            'display': 1500,
+            'full': 15000
+        }
+        self.max_y_bound = 1e6
+\end{lstlisting}
+\end{tcolorbox}
+
+Key methods:
+\begin{itemize}
+    \item \textbf{prepare\_function\_string(function\_str)}: Converts mathematical notation to numpy-compatible expressions
+    \item \textbf{evaluate\_function(function\_str)}: Evaluates mathematical functions and returns x, y coordinates
+    \item \textbf{get\_plot\_limits(y)}: Calculates appropriate y-axis limits for plotting
+\end{itemize}
+
+\section{\texttt{src/core/function\_plotter.py}}
+\subsection{File Purpose}
+This file defines the \texttt{FunctionPlotter} class, which is responsible for preparing and evaluating mathematical functions expressed as strings. It handles the conversion of standard mathematical notation (like \texttt{sin(x)}, \texttt{e\^{}x}, \texttt{pi}) into a format that Python's numerical libraries (like NumPy and SciPy) can understand and compute. It also manages settings related to plot ranges and point density for visualization.
+
+\subsection{Class: \texttt{FunctionPlotter}}
+\begin{lstlisting}[language=Python, caption={Excerpt from src/core/function\_plotter.py}, basicstyle=\ttfamily\footnotesize]
+class FunctionPlotter:
+    def __init__(self):
+        # Adjust ranges for better performance and display
+        self.full_range = (-10000, 10000)  # Full calculation range
+        self.display_range = (-20, 20)      # Default visible range
+        self.num_points = {
+            'display': 1500,            'full': 15000        }
+        self.max_y_bound = 1e6
+
+    def prepare_function_string(self, function_str):
+        # ...
+        pass
+
+    def evaluate_function(self, function_str):
+        # ...
+        pass
+
+    def get_plot_limits(self, y):
+        # ...
+        pass
+\end{lstlisting}
+\subsubsection{\texttt{\_\_init\_\_(self)}}
+\begin{itemize}
+    \item \textbf{Purpose}: The constructor initializes a new \texttt{FunctionPlotter} object with default settings for plotting.
+    \item \textbf{Parameters}:
+        \begin{itemize}
+            \item \texttt{self}: A reference to the instance of the class itself.
+        \end{itemize}
+    \item \textbf{Implementation}:
+        \begin{itemize}
+            \item \texttt{self.full\_range = (-10000, 10000)}: Sets the full range over which calculations might be performed. This is a tuple representing (min\_x, max\_x).
+            \item \texttt{self.display\_range = (-20, 20)}: Sets the default visible range on a plot. This is typically a smaller subset of the \texttt{full\_range}.
+            \item \texttt{self.num\_points = \{'display': 1500, 'full': 15000\}}: A dictionary defining the number of points to use when generating data for plotting. More points mean a smoother curve.
+                \begin{itemize}
+                    \item \texttt{'display'}: Number of points for the visible display range.
+                    \item \texttt{'full'}: Number of points for the full calculation range.
+                \end{itemize}
+            \item \texttt{self.max\_y\_bound = 1e6}: Sets a maximum absolute value for y-coordinates. This is used to prevent extremely large y-values (e.g., from asymptotes) from distorting the plot's scale.
+        \end{itemize}
+\end{itemize}
+
+\subsubsection{\texttt{prepare\_function\_string(self, function\_str)}}
+\begin{itemize}
+    \item \textbf{Purpose}: This method takes a mathematical function string (e.g., \texttt{"sin(x) + pi"}) and converts it into a Python-evaluable string. Common mathematical constants and functions are replaced by their NumPy or SciPy equivalents (e.g., \texttt{"np.sin(x) + np.pi"}). It also handles exponentiation.
+    \item \textbf{Parameters}:
+        \begin{itemize}
+            \item \texttt{self}: The instance of the class.
+            \item \texttt{function\_str} (str): The mathematical function as a string.
+        \end{itemize}
+    \item \textbf{Returns}: (str) The processed function string, ready for evaluation by Python's \texttt{eval()} function within a context where NumPy (\texttt{np}) and SciPy (\texttt{scipy}) are available.
+    \item \textbf{How it Works}:
+        \begin{enumerate}
+            \item \textbf{Constants Mapping}: It defines a dictionary \texttt{constants} mapping common mathematical constant names (e.g., \texttt{'pi'}, \texttt{'e'}) to their NumPy representations (\texttt{'np.pi'}, \texttt{'np.e'}).
+            \item \textbf{Functions Mapping}: It defines a comprehensive dictionary \texttt{functions} mapping common mathematical function names (e.g., \texttt{'sin'}, \texttt{'cos'}, \texttt{'tan'}, \texttt{'exp'}, \texttt{'log'}, \texttt{'sqrt'}, \texttt{'abs'}, \texttt{'arcsin'}, \texttt{'arccos'}, \texttt{'arctan'}, \texttt{'log10'}, \texttt{'log2'}, \texttt{'sinh'}, \texttt{'cosh'}, \texttt{'tanh'}, \texttt{'ceil'}, \texttt{'floor'}, \texttt{'round'}, \texttt{'erf'} (from \texttt{scipy.special}), \texttt{'gamma'} (from \texttt{scipy.special}), \texttt{'beta'} (from \texttt{scipy.special}), \texttt{'sinc'}) to their NumPy or SciPy counterparts.
+            \item \textbf{Replacement}:
+                \begin{itemize}
+                    \item It iterates through the \texttt{constants} dictionary. For each constant, it uses \texttt{re.sub(rf'\b\{const\}\b', replacement, function\_str)} to replace all occurrences of the constant's name (as a whole word) in \texttt{function\_str} with its NumPy equivalent.
+                    \item It then iterates through the \texttt{functions} dictionary. For each function, it uses \texttt{re.sub(rf'\b(?<!np\.)\{func\}\b', replacement, function\_str)} to replace function names (as whole words, and not already prefixed with \texttt{np.}) with their NumPy/SciPy versions. The negative lookbehind \texttt{(?<!np\.)} prevents accidental replacement if a function is already in the desired format (e.g. \texttt{np.sin}).
+                \end{itemize}
+            \item \textbf{Exponentiation}: It replaces the caret symbol \texttt{\^} (commonly used for exponentiation in mathematics) with Python's exponentiation operator \texttt{**} using \texttt{function\_str.replace('^', '**')}.
+        \end{enumerate}
+\end{itemize}
+
+\subsubsection{\texttt{evaluate\_function(self, function\_str)}}
+\begin{itemize}
+    \item \textbf{Purpose}: This method evaluates the processed mathematical function string over a range of x-values to produce corresponding y-values, suitable for plotting. It intelligently generates x-values based on the function type and handles domain restrictions.
+    \item \textbf{Parameters}:
+        \begin{itemize}
+            \item \texttt{self}: The instance of the class.
+            \item \texttt{function\_str} (str): The original mathematical function string.
+        \end{itemize}
+    \item \textbf{Returns}: (tuple) A tuple \texttt{(x\_full, y\_full)} containing NumPy arrays of the x and y coordinates after evaluation, filtering of non-finite values, and clipping.
+    \item \textbf{How it Works}:
+        \begin{enumerate}
+            \item \textbf{Prepare String}: It first calls \texttt{self.prepare\_function\_string(function\_str)} to get the Python-evaluable function string.
+            \item \textbf{Identify Special Functions}: It checks for the presence of functions with specific domain requirements (e.g., \texttt{log}, \texttt{sqrt}, \texttt{arcsin}, \texttt{arccos}, \texttt{gamma}, \texttt{beta}).
+            \item \textbf{Generate Display X-values}: \texttt{x\_display} points are generated using \texttt{np.linspace} over \texttt{self.display\_range}. These points are then filtered based on the domain requirements of any special functions present (e.g., \texttt{x > 0} for log/sqrt, \texttt{-1 <= x <= 1} for arcsin/arccos).
+            \item \textbf{Evaluate Display Y-values}: \texttt{y\_display} is calculated by evaluating the processed function string using \texttt{eval()} with \texttt{x\_display}.
+            \item \textbf{Generate Full X-values (\texttt{x\_full})}: This is done adaptively:
+                \begin{itemize}
+                    \item For functions like \texttt{log} or \texttt{sqrt}, \texttt{x\_full} is generated using \texttt{np.logspace} for regions outside \texttt{x\_display} and concatenated with \texttt{x\_display}, focusing on positive values.
+                    \item For \texttt{arcsin} or \texttt{arccos}, \texttt{x\_full} is generated using \texttt{np.linspace} strictly within the \texttt{[-1, 1]} domain.
+                    \item For \texttt{gamma} or \texttt{beta}, \texttt{x\_full} uses \texttt{np.logspace} for positive values.
+                    \item For other functions, \texttt{x\_full} is generated by concatenating \texttt{np.linspace} for ranges outside \texttt{self.display\_range} with \texttt{x\_display}, covering \texttt{self.full\_range}.
+                    \item Duplicate x-values are removed using \texttt{np.unique(x\_full)}.
+                \end{itemize}
+            \item \textbf{Evaluate Full Y-values}: The processed function is evaluated using \texttt{eval()} with \texttt{x\_full} to get \texttt{y\_full}. The evaluation context includes \texttt{numpy} (as \texttt{np}) and \texttt{scipy} (which makes \texttt{scipy.special} available).
+            \item \textbf{Filter and Clip}: Non-finite y-values (NaN, infinity) are removed from \texttt{x\_full} and \texttt{y\_full}. The remaining \texttt{y\_full} values are then clipped to the range \texttt{[-self.max\_y\_bound, self.max\_y\_bound]}.
+            \item \textbf{Error Handling}: The entire evaluation is wrapped in a \texttt{try-except} block. If an exception occurs, it attempts to raise a more descriptive \texttt{ValueError} for common domain errors (e.g., "Logarithm error: Cannot compute log of zero or negative values", "Square root error: Cannot compute sqrt of negative values", etc.) or a general error message.
+        \end{enumerate}
+\end{itemize}
+
+\subsubsection{\texttt{get\_plot\_limits(self, y)}}
+\begin{itemize}
+    \item \textbf{Purpose}: This method calculates appropriate y-axis limits for a plot based on the calculated y-values, ensuring good visibility of the plotted data.
+    \item \textbf{Parameters}:
+        \begin{itemize}
+            \item \texttt{self}: The instance of the class.
+            \item \texttt{y} (np.ndarray): An array of y-values.
+        \end{itemize}
+    \item \textbf{Returns}: (tuple) A tuple \texttt{(min\_y, max\_y)} representing the suggested y-axis limits for the plot.
+    \item \textbf{How it Works}:
+        \begin{enumerate}
+            \item \textbf{Filter Finite Values}: It first creates \texttt{y\_valid} by selecting only the finite values from the input \texttt{y} array using \texttt{np.isfinite(y)}.
+            \item \textbf{Handle Empty Data}: If \texttt{y\_valid} is empty (no finite y-values), it returns a default range of \texttt{(-10, 10)}.
+            \item \textbf{Calculate Min/Max}: It finds the minimum and maximum of \texttt{y\_valid}.
+            \item \textbf{Adaptive Padding}: Based on the range (\texttt{abs(y\_max - y\_min)}), it applies different padding logic:
+                \begin{itemize}
+                    \item If range < 0.1: Returns \texttt{(mid - 0.5, mid + 0.5)}.
+                    \item If range < 1: Returns \texttt{(mid - 1, mid + 1)}.
+                    \item If range < 10: Padding is \texttt{max(1, range * 0.15)}.
+                    \item If range > 1000: Padding is \texttt{range * 0.05} (smaller proportional padding for very large ranges).
+                    \item Otherwise (medium range): Padding is \texttt{range * 0.1}.
+                \end{itemize}
+            \item The final limits are \texttt{y\_min - padding} and \texttt{y\_max + padding}.
+        \end{enumerate}
+\end{itemize}
+
+\chapter{GUI Module}
+\section{Main Window}
+The MathPlotterApp class in \texttt{src/gui/main\_window.py} serves as the main application window.
+
+\begin{tcolorbox}[title=Main Window Features]
+\begin{itemize}
+    \item Menu bar with file operations and view controls
+    \item Interactive plotting canvas
+    \item Status bar with real-time information
+    \item Custom navigation toolbar
+    \item Integration with side menu
+\end{itemize}
+\end{tcolorbox}
+
+\subsubsection{\texttt{\_\_init\_\_(self, parent=None)}}
+\begin{itemize}
+    \item \textbf{Purpose}: Constructor for the \texttt{MathPlotterApp} main window.
+    \item \textbf{Parameters}:
+        \begin{itemize}
+            \item \texttt{parent} (QWidget, optional): Parent widget. Defaults to \texttt{None}.
+        \end{itemize}
+    \item \textbf{Implementation Details}:
+        \begin{enumerate}
+            \item \textbf{Initialization}: Calls the superclass (\texttt{QMainWindow}) constructor.
+            \item \textbf{Function Plotter}: Initializes an instance of \texttt{FunctionPlotter} from \texttt{src.core.function\_plotter}.
+            \item \textbf{Window Setup}: Sets the window title to "RF-Modeler - Function Plotter & Regression Analysis" and applies a custom stylesheet using \texttt{Styles.MAIN\_WINDOW\_STYLE}.
+            \item \textbf{Central Widget and Layout}: Creates a central widget and a main horizontal layout (\texttt{QHBoxLayout}).
+            \item \textbf{Plotting Area Setup}:
+                \begin{itemize}
+                    \item Creates a \texttt{Figure} and a \texttt{FigureCanvasQTAgg} for Matplotlib plotting.
+                    \item Adds an Axes (\texttt{self.ax}) to the figure for 2D plotting.
+                    \item Instantiates \texttt{CustomNavigationToolbar} using the canvas and the main window.
+                    \item Creates a vertical layout (\texttt{plot\_layout}) to hold the toolbar and the canvas.
+                    \item Adds this \texttt{plot\_layout} to the main horizontal layout.
+                \end{itemize}
+            \item \textbf{Side Menu}: Initializes and adds \texttt{SideMenu(self.function\_plotter, self)} to the main layout.
+            \item \textbf{Status Bar}: Creates and sets up a status bar to display messages.
+            \item \textbf{Menu Bar}: Calls \texttt{self.\_create\_menu\_bar()} to populate the menu.
+            \item \textbf{Initial Plot}: Calls \texttt{self.plot\_function()} to render an initial empty plot.
+            \item \textbf{Window Geometry}: Sets an initial window size (e.g., 1200x800) and centers the window on the screen.
+            \item \textbf{Connections}: Connects signals from the side menu to appropriate slots in the main window:
+                \begin{itemize}
+                    \item \texttt{side\_menu.plot\_requested.connect(self.plot\_function)}
+                    \item \texttt{side\_menu.clear\_plot.connect(self.clear\_plot)}
+                    \item \texttt{side\_menu.status\_message.connect(self.show\_status\_message)}
+                    \item \texttt{side\_menu.toggle\_grid.connect(self.toggle\_grid)}
+                    \item \texttt{side\_menu.toggle\_legend.connect(self.toggle\_legend)}
+                    \item \texttt{side\_menu.update\_plot\_limits.connect(self.update\_plot\_limits)}
+                    \item \texttt{side\_menu.export\_plot.connect(self.export\_plot)}
+                    \item \texttt{side\_menu.show\_current\_function.connect(self.show\_current\_function\_dialog)}
+                \end{itemize}
+        \end{enumerate}
+\end{itemize}
+
+\subsubsection{\texttt{\_create\_menu\_bar(self)}}
+\begin{itemize}
+    \item \textbf{Purpose}: Creates and populates the main menu bar for the application.
+    \item \textbf{Implementation Details}:
+        \begin{itemize}
+            \item \textbf{File Menu}: Creates a "File" menu.
+                \begin{itemize}
+                    \item \textbf{Export Plot Action}: Adds an "Export Plot..." action (icon: \texttt{save.png}), connects its \texttt{triggered} signal to \texttt{self.export\_plot}.
+                    \item \textbf{Exit Action}: Adds an "Exit" action (icon: \texttt{exit.png}), connects its \texttt{triggered} signal to \texttt{self.close}.
+                \end{itemize}
+            \item \textbf{View Menu}: Creates a "View" menu.
+                \begin{itemize}
+                    \item \textbf{Toggle Grid Action}: Adds a "Toggle Grid" checkable action, connects its \texttt{toggled} signal to \texttt{self.toggle\_grid}. (Initial state might be based on a setting).
+                    \item \textbf{Toggle Legend Action}: Adds a "Toggle Legend" checkable action, connects its \texttt{toggled} signal to \texttt{self.toggle\_legend}. (Initial state might be based on a setting).
+                \end{itemize}
+            \item \textbf{Help Menu}: Creates a "Help" menu.
+                \begin{itemize}
+                    \item \textbf{About Action}: Adds an "About" action, connects its \texttt{triggered} signal to \texttt{self.show\_about\_dialog}.
+                \end{itemize}
+        \end{itemize}
+\end{itemize}
+
+\subsubsection{\texttt{plot\_function(self, function\_str=None, plot\_data=None, label=None, color=None, linestyle='-', clear\_previous=False)}}
+\begin{itemize}
+    \item \textbf{Purpose}: Plots a mathematical function or provided data on the Matplotlib canvas.
+    \item \textbf{Parameters}:
+        \begin{itemize}
+            \item \texttt{function\_str} (str, optional): The mathematical function string to plot.
+            \item \texttt{plot\_data} (dict, optional): A dictionary containing pre-calculated data to plot, e.g., \texttt{\{'x': x\_vals, 'y': y\_vals, 'type': 'scatter'/ 'line'\}}. If provided, \texttt{function\_str} is ignored for this specific plot item.
+            \item \texttt{label} (str, optional): Label for the plot, used in the legend.
+            \item \texttt{color} (str, optional): Color for the plot line/points.
+            \item \texttt{linestyle} (str, optional): Linestyle for the plot (e.g., '-', '--', ':'). Default is '-'.
+            \item \texttt{clear\_previous} (bool, optional): If True, clears previous plots before drawing the new one. Default is False.
+        \end{itemize}
+    \item \textbf{Implementation Details}:
+        \begin{enumerate}
+            \item \textbf{Clear Plot}: If \texttt{clear\_previous} is True, clears the axes (\texttt{self.ax.clear()}).
+            \item \textbf{Plotting Logic}:
+                \begin{itemize}
+                    \item \textbf{If \texttt{plot\_data} is provided}:
+                        \begin{itemize}
+                            \item Extracts \texttt{x}, \texttt{y}, and \texttt{plot\_type} (defaults to 'line') from \texttt{plot\_data}.
+                            \item If \texttt{plot\_type} is 'scatter', uses \texttt{self.ax.scatter()}.
+                            \item Else (line plot), uses \texttt{self.ax.plot()}.
+                            \item Updates status bar: "Plotting provided data..."
+                        \end{itemize}
+                    \item \textbf{Else if \texttt{function\_str} is provided and not empty}:
+                        \begin{itemize}
+                            \item Updates status bar: \texttt{f"Evaluating function: {function\_str}"}.
+                            \item Tries to evaluate the function using \texttt{self.function\_plotter.evaluate\_function(function\_str)}.
+                            \item If successful, plots \texttt{x} and \texttt{y} using \texttt{self.ax.plot()}.
+                            \item Sets y-axis limits using \texttt{self.function\_plotter.get\_plot\_limits(y)}.
+                            \item Updates status bar: \texttt{f"Plotted function: {function\_str}"}.
+                            \item Handles potential \texttt{ValueError} or other exceptions during evaluation, showing an error message in the status bar and a \texttt{QMessageBox}.
+                        \end{itemize}
+                    \item \textbf{Else (no function and no data, or empty function string for initial plot)}:
+                        \begin{itemize}
+                            \item Sets default plot limits (e.g., x-axis from \texttt{self.function\_plotter.display\_range}, y-axis from -10 to 10).
+                            \item Updates status bar: "Plot area initialized. Enter a function or load data."
+                        \end{itemize}
+                \end{itemize}
+            \item \textbf{Styling and Legend}: Sets plot title, x-label, y-label. If a legend is enabled (\texttt{self.legend\_enabled}), updates and shows the legend.
+            \item \textbf{Grid}: If grid is enabled (\texttt{self.grid\_enabled}), shows the grid.
+            \item \textbf{Draw Canvas}: Calls \texttt{self.canvas.draw()} to refresh the plot.
+        \end{enumerate}
+\end{itemize}
+
+\subsubsection{\texttt{update\_plot\_limits(self, x\_min, x\_max, y\_min, y\_max)}}
+\begin{itemize}
+    \item \textbf{Purpose}: Updates the x and y axis limits of the plot.
+    \item \textbf{Parameters}:
+        \begin{itemize}
+            \item \texttt{x\_min}, \texttt{x\_max}, \texttt{y\_min}, \texttt{y\_max} (float): New axis limits.
+        \end{itemize}
+    \item \textbf{Implementation}: Sets \texttt{self.ax.set\_xlim(x\_min, x\_max)} and \texttt{self.ax.set\_ylim(y\_min, y\_max)}, then redraws the canvas.
+\end{itemize}
+
+\subsubsection{\texttt{clear\_plot(self)}}
+\begin{itemize}
+    \item \textbf{Purpose}: Clears all plotted lines and data from the plot area and resets labels/title.
+    \item \textbf{Implementation}:
+        \begin{enumerate}
+            \item Clears the axes: \texttt{self.ax.clear()}.
+            \item Resets plot elements: Sets title to "Function Plot", x-label to "X-axis", y-label to "Y-axis".
+            \item Reapplies grid and legend if they were enabled.
+            \item Sets default axis limits (e.g., x from display range, y from -10 to 10).
+            \item Redraws the canvas: \texttt{self.canvas.draw()}.
+            \item Updates status bar: "Plot cleared."
+        \end{enumerate}
+\end{itemize}
+
+\subsubsection{\texttt{toggle\_grid(self, enabled)}}
+\begin{itemize}
+    \item \textbf{Purpose}: Toggles the visibility of the plot grid.
+    \item \textbf{Parameters}:
+        \begin{itemize}
+            \item \texttt{enabled} (bool): True to show grid, False to hide.
+        \end{itemize}
+    \item \textbf{Implementation}: Sets \texttt{self.grid\_enabled = enabled}, calls \texttt{self.ax.grid(enabled)}, and redraws the canvas.
+\end{itemize}
+
+\subsubsection{\texttt{toggle\_legend(self, enabled)}}
+\begin{itemize}
+    \item \textbf{Purpose}: Toggles the visibility of the plot legend.
+    \item \textbf{Parameters}:
+        \begin{itemize}
+            \item \texttt{enabled} (bool): True to show legend, False to hide.
+        \end{itemize}
+    \item \textbf{Implementation}: Sets \texttt{self.legend\_enabled = enabled}. If enabled, calls \texttt{self.ax.legend()} if there are any labeled artists; if disabled, calls \texttt{self.ax.get\_legend().remove()} if a legend exists. Redraws the canvas.
+\end{itemize}
+
+\subsubsection{\texttt{export\_plot(self)}}
+\begin{itemize}
+    \item \textbf{Purpose}: Opens a file dialog to save the current plot as an image file (e.g., PNG, JPG, PDF).
+    \item \textbf{Implementation}:
+        \begin{enumerate}
+            \item Uses \texttt{QFileDialog.getSaveFileName} to get the desired file path and type from the user.
+            \item If a file path is provided, saves the figure using \texttt{self.figure.savefig(filePath)}.
+            \item Shows a success or error message in the status bar.
+        \end{enumerate}
+\end{itemize}
+
+\subsubsection{\texttt{show\_status\_message(self, message, timeout=5000)}}
+\begin{itemize}
+    \item \textbf{Purpose}: Displays a message on the status bar for a specified duration.
+    \item \textbf{Parameters}:
+        \begin{itemize}
+            \item \texttt{message} (str): The message to display.
+            \item \texttt{timeout} (int, optional): Duration in milliseconds to show the message. Default is 5000ms.
+        \end{itemize}
+    \item \textbf{Implementation}: Uses \texttt{self.statusBar().showMessage(message, timeout)}.
+\end{itemize}
+
+\subsubsection{\texttt{show\_current\_function\_dialog(self, function\_str)}}
+\begin{itemize}
+    \item \textbf{Purpose}: Displays a dialog showing the currently processed mathematical function string, potentially with LaTeX rendering.
+    \item \textbf{Parameters}:
+        \begin{itemize}
+            \item \texttt{function\_str} (str): The (potentially processed) function string to display.
+        \end{itemize}
+    \item \textbf{Implementation}:
+        \begin{enumerate}
+            \item Creates an instance of \texttt{MathExpressionWidget} (from \texttt{src.gui.show\_function}) with the \texttt{function\_str}.
+            \item Executes the dialog using \texttt{dialog.exec()}.
+        \end{enumerate}
+\end{itemize}
+
+\subsubsection{\texttt{show\_about\_dialog(self)}}
+\begin{itemize}
+    \item \textbf{Purpose}: Displays an "About" dialog with information about the application.
+    \item \textbf{Implementation}: Uses \texttt{QMessageBox.about()} to show a simple dialog with application name, version (if any), and a brief description.
+\end{itemize}
+
+\subsubsection{\texttt{closeEvent(self, event)}}
+\begin{itemize}
+    \item \textbf{Purpose}: Handles the window close event. Can be used to prompt the user for confirmation or perform cleanup.
+    \item \textbf{Parameters}:
+        \begin{itemize}
+            \item \texttt{event} (QCloseEvent): The close event object.
+        \end{itemize}
+    \item \textbf{Implementation} (Example):
+        \begin{enumerate}
+            \item Creates a \texttt{QMessageBox} to ask "Are you sure you want to exit?".
+            \item If the user clicks "Yes", accepts the event (\texttt{event.accept()}), closing the application.
+            \item If the user clicks "No", ignores the event (\texttt{event.ignore()}), keeping the application open.
+        \end{enumerate}
+\end{itemize}
+
+\subsection{Function: \texttt{main()}}
+\begin{itemize}
+    \item \textbf{Purpose}: The main entry point function to create and run the \texttt{MathPlotterApp}.
+    \item \textbf{Implementation}:
+        \begin{enumerate}
+            \item Creates a \texttt{QApplication} instance: \texttt{app = QApplication(sys.argv)}.
+            \item Creates an instance of the main window: \texttt{main\_window = MathPlotterApp()}.
+            \item Shows the main window: \texttt{main\_window.show()}.
+            \item Starts the Qt event loop: \texttt{sys.exit(app.exec())}.
+        \end{enumerate}
+\end{itemize}
+
+\section{\texttt{src/gui/show\_function.py}}
+\subsection{File Purpose}
+This file provides components for displaying mathematical expressions, potentially rendered using Matplotlib's MathText, in a separate dialog or widget. This is useful for showing the user a nicely formatted version of the function they are working with.
+
+\subsection{Class: \texttt{MathExpressionRenderer(QWidget)}}
+\begin{itemize}
+    \item \textbf{Purpose}: A custom widget designed to render a mathematical expression string using Matplotlib's MathText capabilities.
+    \item \textbf{Inherits from}: \texttt{QWidget}
+    \item \textbf{Key Attributes}:
+        \begin{itemize}
+            \item \texttt{expression} (str): The mathematical expression string to render (e.g., \texttt{r"$y = x^2 + \sin(x)$"}).
+        \end{itemize}
+\end{itemize}
+\subsubsection{\texttt{\_\_init\_\_(self, expression, parent=None)}}
+\begin{itemize}
+    \item \textbf{Purpose}: Initializes the renderer widget.
+    \item \textbf{Parameters}:
+        \begin{itemize}
+            \item \texttt{expression} (str): The mathematical expression string.
+            \item \texttt{parent} (QWidget, optional): Parent widget.
+        \end{itemize}
+    \item \textbf{Implementation}:
+        \begin{enumerate}
+            \item Calls superclass constructor.
+            \item Stores the \texttt{expression}.
+            \item Sets a minimum size for the widget (e.g., 300x100).
+        \end{enumerate}
+\end{itemize}
+\subsubsection{\texttt{paintEvent(self, event)}}
+\begin{itemize}
+    \item \textbf{Purpose}: Overridden from \texttt{QWidget}. Called whenever the widget needs to be repainted.
+    \item \textbf{Parameters}:
+        \begin{itemize}
+            \item \texttt{event} (QPaintEvent): The paint event object.
+        \end{itemize}
+    \item \textbf{Implementation}:
+        \begin{enumerate}
+            \item Creates a \texttt{QPainter} for the widget.
+            \item Sets rendering hints for antialiasing.
+            \item Clears the widget background.
+            \item Uses Matplotlib's MathText parser (\texttt{matplotlib.mathtext.MathTextParser('path')}) to render the \texttt{self.expression}.
+            \item The \texttt{parse} method of \texttt{MathTextParser} can output to a \texttt{QImage} or draw directly onto a painter if a suitable interface is provided or wrapped. Alternatively, it might render to an internal buffer and then draw that buffer to the \texttt{QPainter}. The goal is to draw the expression centered within the widget.
+            \item Font size and color can be customized.
+        \end{enumerate}
+\end{itemize}
+
+\subsection{Class: \texttt{MathExpressionWidget(QDialog)}}
+\begin{itemize}
+    \item \textbf{Purpose}: A dialog box that uses \texttt{MathExpressionRenderer} to display a mathematical expression.
+    \item \textbf{Inherits from}: \texttt{QDialog}
+\end{itemize}
+\subsubsection{\texttt{\_\_init\_\_(self, expression, parent=None)}}
+\begin{itemize}
+    \item \textbf{Purpose}: Initializes the expression display dialog.
+    \item \textbf{Parameters}:
+        \begin{itemize}
+            \item \texttt{expression} (str): The mathematical expression string to display.
+            \item \texttt{parent} (QWidget, optional): Parent widget.
+        \end{itemize}
+    \item \textbf{Implementation}:
+        \begin{enumerate}
+            \item Calls superclass constructor.
+            \item Sets the window title (e.g., "Current Mathematical Expression").
+            \item Creates a \texttt{QVBoxLayout} for the dialog.
+            \item Instantiates \texttt{MathExpressionRenderer} with the given \texttt{expression}.
+            \item Adds the renderer widget to the layout.
+            \item Adds an "OK" button (\texttt{QPushButton}) connected to \texttt{self.accept} (to close the dialog).
+            \item Sets the layout for the dialog.
+            \item Optionally sets a fixed or minimum size for the dialog.
+        \end{enumerate}
+\end{itemize}
+
+\section{\texttt{src/gui/side\_menu.py}}
+
+\chapter{Utilities Module}
+\section{Data Loader}
+The data\_loader.py module provides functions for data import and validation.
+
+Key functions:
+\begin{itemize}
+    \item \textbf{load\_data\_from\_file(filename)}: Loads and processes CSV data
+    \item \textbf{validate\_data(x, y)}: Ensures data meets regression requirements
+\end{itemize}
+
+\section{Plot Utilities}
+The plot\_utils.py module contains specialized plotting functions.
+
+Key functions:
+\begin{itemize}
+    \item \textbf{generate\_heatmap\_data(x, y, grid\_size)}: Creates heatmap visualization data
+    \item \textbf{plot\_regression\_segments(ax, model, x\_fine, y\_pred\_fine, colors)}: Visualizes regression segments
+\end{itemize}
+
+\chapter{Application Entry Point}
+The App.py file serves as the main entry point for the application.
+
+\begin{tcolorbox}[title=Application Initialization]
+\begin{lstlisting}[language=Python]
+from src.gui.main_window import main
+
+if __name__ == "__main__":
+    main()
+\end{lstlisting}
+\end{tcolorbox}
+
+\chapter{Build Scripts}
+\section{Linux Build}
+The build\_linux.sh script handles:
+\begin{itemize}
+    \item Environment setup
+    \item Dependency installation
+    \item Application compilation
+    \item Resource bundling
+\end{itemize}
+
+\section{Windows Build}
+The build\_windows.bat script manages:
+\begin{itemize}
+    \item Windows-specific environment setup
+    \item Dependency resolution
+    \item Application packaging
+    \item Installer creation
+\end{itemize}
+
+\chapter{Source Code Documentation}
+\label{cha:source_code_documentation}
+This chapter provides a detailed walkthrough of the Python source code that powers the RF-Modeler application. Each section corresponds to a Python file within the \texttt{src} directory, explaining its overall purpose and then delving into the specifics of each class, method, or function it contains.
+
+\section{\texttt{src/\_\_init\_\_.py}}
+\subsection{File Purpose}
+This file serves as the entry point for the \texttt{src} package. In Python, an \texttt{\_\_init\_\_.py} file in a directory indicates that the directory should be treated as a package or sub-package. This allows modules within the package to be imported using the package's namespace.
+
+The primary role of this specific \texttt{src/\_\_init\_\_.py} file is to provide a high-level description of the RF-Modeler application through its docstring.
+
+\subsection{Content}
+\begin{verbatim}
+"""
+RP-Modeler - A tool for modeling and visualizing mathematical functions and data
+"""
+\end{verbatim}
+\subsubsection{Docstring}
+\begin{itemize}
+    \item \textbf{Purpose}: The docstring at the beginning of the file, enclosed in triple quotes (\texttt{"""..."""}), provides a brief summary of what the RF-Modeler application is.
+    \item \textbf{Usage}: This docstring can be accessed programmatically (e.g., using Python's \texttt{help()} function or by inspecting the package's \texttt{\_\_doc\_\_} attribute) and is also useful for developers to quickly understand the package's main goal.
+    \item \textbf{Implementation}: It's a simple string literal. There's no executable code in this file.
+\end{itemize}
+
+\section{\texttt{src/core/\_\_init\_\_.py}}
+\subsection{File Purpose}
+This file marks the \texttt{src/core} directory as a Python sub-package. The "core" sub-package is intended to house the fundamental logic of the application, particularly related to mathematical computations, data modeling, and plotting algorithms. This \texttt{\_\_init\_\_.py} file also makes specific classes from modules within the \texttt{core} sub-package directly accessible when importing from \texttt{src.core}.
+
+\subsection{Content Analysis}
+\begin{lstlisting}[language=Python, caption={Content of src/core/\_\_init\_\_.py}, basicstyle=\\ttfamily\\footnotesize]
+"""Core functionality for mathematical operations and plotting"""
+
+from .function_plotter import FunctionPlotter
+from .regression_model import PiecewiseLogarithmicRegression
+
+__all__ = ['FunctionPlotter', 'PiecewiseLogarithmicRegression']
+\end{lstlisting}
+
+\subsubsection{Docstring}
+\begin{itemize}
+    \item \textbf{Purpose}: The docstring \texttt{"""Core functionality for mathematical operations and plotting"""} describes the general responsibility of the \texttt{core} sub-package.
+\end{itemize}
+
+\subsubsection{Imports}
+\begin{itemize}
+    \item \texttt{from .function\_plotter import FunctionPlotter}
+        \begin{itemize}
+            \item \textbf{Purpose}: This line imports the \texttt{FunctionPlotter} class from the \texttt{function\_plotter.py} module located in the same directory (the dot \texttt{.} indicates a relative import from the current package).
+            \item \textbf{Usage}: This makes \texttt{FunctionPlotter} available as \texttt{src.core.FunctionPlotter}.
+        \end{itemize}
+    \item \texttt{from .regression\_model import PiecewiseLogarithmicRegression}
+        \begin{itemize}
+            \item \textbf{Purpose}: This line imports the \texttt{PiecewiseLogarithmicRegression} class from the \texttt{regression\_model.py} module, also in the same directory.
+            \item \textbf{Usage}: This makes \texttt{PiecewiseLogarithmicRegression} available as \texttt{src.core.PiecewiseLogarithmicRegression}.
+        \end{itemize}
+\end{itemize}
+
+\subsubsection{\texttt{\_\_all\_\_} Variable
+\begin{itemize}
+    \item \texttt{\_\_all\_\_ = ['FunctionPlotter', 'PiecewiseLogarithmicRegression']}
+        \begin{itemize}
+            \item \textbf{Purpose}: The \texttt{\_\_all\_\_} variable is a list of strings that defines the public interface of the \texttt{src.core} package. When a user writes \texttt{from src.core import *}, only the names listed in \texttt{\_\_all\_\_} will be imported.
+            \item \textbf{Usage}: It helps to control which names are exported, preventing accidental exposure of internal variables or modules. In this case, it explicitly states that \texttt{FunctionPlotter} and \texttt{PiecewiseLogarithmicRegression} are the intended public components of this package.
+            \item \textbf{Implementation}: It's a list containing the string names of the classes that should be considered public.
+        \end{itemize}
+\end{itemize}
+
+\section{\texttt{src/core/regression\_model.py}}
+\subsection{File Purpose}
+This file defines the \texttt{PiecewiseLogarithmicRegression} class, which implements an algorithm for fitting a piecewise logarithmic regression model to a given dataset (x, y). This type of model is useful when the relationship between x and y can be approximated by different logarithmic functions over different segments of the x-range. The class handles finding optimal breakpoints that divide the data into segments and then fits a logarithmic model (\texttt{y = a + b*log(x)}) to each segment.
+
+\subsection{Class: \texttt{PiecewiseLogarithmicRegression}}
+This class uses libraries like \texttt{scikit-learn} for metrics (\texttt{r2\_score}), \texttt{scipy.linalg} for solving linear systems (potentially for the regression coefficients), and \texttt{scipy.stats} (likely for confidence intervals or statistical tests).
+
+\begin{lstlisting}[language=Python, caption={Excerpt from src/core/regression\_model.py}, basicstyle=\\ttfamily\\footnotesize]
+from sklearn.metrics import r2_score
+from scipy.linalg import solve # Not directly used in _solve_logarithmic_regression, SVD is used
+from scipy import stats
+import numpy as np # Assuming np is imported, as it's used extensively
+
+class PiecewiseLogarithmicRegression:
+    def __init__(self, max_breakpoints=5, min_segment_length=3, tolerance=1.00, max_iter=100, verbose=False):
+        # ...
+        pass
+    def _solve_logarithmic_regression(self, X, y):
+        # ...
+        pass
+    # ... other methods ...
+    def fit(self, x, y):
+        # ...
+        pass
+    def predict(self, x):
+        # ...
+        pass
+    def get_equations(self):
+        # ...
+        pass
+    def get_universal_function(self):
+        # ...
+        pass
+    def get_confidence_intervals(self, x, confidence=0.95):
+        # ...
+        pass
+\end{lstlisting}
+
+\subsubsection{\texttt{\_\_init\_\_(self, max\_breakpoints=5, min\_segment\_length=3, tolerance=1.00, max\_iter=100, verbose=False)}}
+\begin{itemize}
+    \item \textbf{Purpose}: Initializes the \texttt{PiecewiseLogarithmicRegression} model with hyperparameters.
+    \item \textbf{Parameters}:
+        \begin{itemize}
+            \item \texttt{max\_breakpoints} (int): Maximum number of breakpoints to consider. Default is 5.
+            \item \texttt{min\_segment\_length} (int): Minimum number of data points required in each segment. Default is 3.
+            \item \texttt{tolerance} (float): Tolerance for improvement in R-squared to continue adding breakpoints. Default is 1.00 (meaning 100\% R-squared, effectively seeking best fit up to \texttt{max\_breakpoints}).
+            \item \texttt{max\_iter} (int): Maximum iterations for the breakpoint optimization algorithm. Default is 100.
+            \item \texttt{verbose} (bool): If True, prints progress during fitting. Default is False.
+        \end{itemize}
+    \item \textbf{Attributes Initialized}:
+        \begin{itemize}
+            \item \texttt{self.max\_breakpoints}: Stores \texttt{max\_breakpoints}.
+            \item \texttt{self.min\_segment\_length}: Stores \texttt{min\_segment\_length}.
+            \item \texttt{self.tolerance}: Stores \texttt{tolerance}.
+            \item \texttt{self.max\_iter}: Stores \texttt{max\_iter}.
+            \item \texttt{self.verbose}: Stores \texttt{verbose}.
+            \item \texttt{self.breakpoints\_}: List to store the optimal breakpoints found during fitting. Initialized to an empty list.
+            \item \texttt{self.models\_}: List to store the fitted logarithmic regression models (coefficients \texttt{[a, b]}) for each segment. Initialized to an empty list.
+            \item \texttt{self.r2\_scores\_}: List to store the R-squared score for each segment. Initialized to an empty list.
+            \item \texttt{self.overall\_r2\_score\_}: Overall R-squared score for the piecewise model. Initialized to None.
+        \end{itemize}
+\end{itemize}
+
+\subsubsection{\texttt{\_solve\_logarithmic\_regression(self, X, y)}}
+\begin{itemize}
+    \item \textbf{Purpose}: Fits a logarithmic model of the form \texttt{y = a + b * log(x)} to the given data points (X, y).
+    \item \textbf{Parameters}:
+        \begin{itemize}
+            \item \texttt{X} (np.ndarray): Input feature values (independent variable). Must be positive for \texttt{log(X)}.
+            \item \texttt{y} (np.ndarray): Target values (dependent variable).
+        \end{itemize}
+    \item \textbf{Returns}: (tuple) A tuple \texttt{(params, y\_pred, r2)}, where:
+        \begin{itemize}
+            \item \texttt{params} (np.ndarray or None): The model parameters \texttt{[a, b]} if the fit is successful and \texttt{X} contains positive values. Returns \texttt{None} if \texttt{X} contains non-positive values or if the segment is too short.
+            \item \texttt{y\_pred} (np.ndarray or None): The predicted y values using the fitted model. Returns \texttt{None} if \texttt{params} is \texttt{None}.
+            \item \texttt{r2} (float or None): The R-squared value for the fit. Returns \texttt{None} if \texttt{params} is \texttt{None}.
+        \end{itemize}
+    \item \textbf{How it Works}:
+        \begin{enumerate}
+            \item \textbf{Input Validation}: Checks if \texttt{X} contains any non-positive values or if the length of \texttt{X} is less than \texttt{self.min\_segment\_length}. If so, returns \texttt{(None, None, None)}.
+            \item \textbf{Transform X}: Computes \texttt{log\_X = np.log(X)}.
+            \item \textbf{Construct Design Matrix}: Creates a design matrix \texttt{A} where the first column is \texttt{np.ones\_like(log\_X)} (for the intercept \texttt{a}) and the second column is \texttt{log\_X} (for the coefficient \texttt{b}).
+            \item \textbf{Solve for Parameters}: Uses Singular Value Decomposition (\texttt{np.linalg.svd}) to solve the linear system \texttt{A @ params = y} for \texttt{params = [a, b]}. This is a robust way to perform least squares regression.
+            \item \textbf{Predict}: Calculates \texttt{y\_pred = A @ params}.
+            \item \textbf{Calculate R-squared}: Computes the R-squared score using \texttt{r2\_score(y, y\_pred)}. If \texttt{y} has no variance (all values are the same), R-squared is set to 1.0 if \texttt{y\_pred} also matches, otherwise 0.0.
+        \end{enumerate}
+\end{itemize}
+
+\subsubsection{\texttt{fit(self, x, y)}}
+\begin{itemize}
+    \item \textbf{Purpose}: Fits the piecewise logarithmic regression model to the input data \texttt{x} and \texttt{y}. It iteratively finds the best breakpoints and fits logarithmic models to the segments.
+    \item \textbf{Parameters}:
+        \begin{itemize}
+            \item \texttt{x} (np.ndarray): The independent variable data.
+            \item \texttt{y} (np.ndarray): The dependent variable data.
+        \end{itemize}
+    \item \textbf{Returns}: \texttt{self} (The fitted model instance).
+    \item \textbf{How it Works}:
+        \begin{enumerate}
+            \item \textbf{Data Preparation}: Sorts \texttt{x} and \texttt{y} based on \texttt{x}. Filters out any data points where \texttt{x <= 0} as logarithmic regression is undefined for non-positive \texttt{x}. If no valid data remains, it prints a warning and returns.
+            \item \textbf{Initial Fit (No Breakpoints)}: First, it fits a single logarithmic model to the entire dataset using \texttt{\_solve\_logarithmic\_regression}. The R-squared of this initial fit becomes the \texttt{best\_overall\_r2}.
+            \item \textbf{Iterative Breakpoint Search}:
+                \begin{itemize}
+                    \item The algorithm iterates up to \texttt{self.max\_breakpoints} times or \texttt{self.max\_iter} iterations for optimizing breakpoints.
+                    \item In each iteration, it tries to add one new breakpoint.
+                    \item For each potential new breakpoint position (ensuring \texttt{min\_segment\_length} on both sides), it splits the data and fits logarithmic models to the new segments.
+                    \item It calculates a combined R-squared for the current set of breakpoints. The combined R-squared is a weighted average of the R-squared scores of individual segments, weighted by the variance of \texttt{y} within each segment.
+                    \item If adding a new breakpoint improves the \texttt{current\_overall\_r2} significantly (the improvement ratio must be greater than \texttt{self.tolerance}), the breakpoint is kept.
+                    \item The process of finding the best single additional breakpoint involves iterating through all possible split points in existing segments.
+                \end{itemize}
+            \item \textbf{Breakpoint Optimization (Refinement)}: After adding breakpoints, it attempts to refine their positions. For each breakpoint, it searches in a local neighborhood (\texttt{search\_radius}, typically 5 data points) for a slightly different position that might yield a better overall R-squared. This is repeated for \texttt{self.max\_iter} or until no further improvement is found.
+            \item \textbf{Store Results}: Once the optimal breakpoints are found (or \texttt{max\_breakpoints} is reached), it stores the final breakpoints in \texttt{self.breakpoints\_}, the model parameters for each segment in \texttt{self.models\_}, the R-squared for each segment in \texttt{self.r2\_scores\_}, and the \texttt{self.overall\_r2\_score\_}.
+            \item \textbf{Verbose Output}: If \texttt{self.verbose} is True, it prints information about the fitting process, including the number of breakpoints found and the overall R-squared.
+        \end{enumerate}
+\end{itemize}
+
+\subsubsection{\texttt{predict(self, x)}}
+\begin{itemize}
+    \item \textbf{Purpose}: Predicts y-values for new x-values using the fitted piecewise logarithmic model.
+    \item \textbf{Parameters}:
+        \begin{itemize}
+            \item \texttt{x} (np.ndarray or list): The x-values for which to make predictions.
+        \end{itemize}
+    \item \textbf{Returns}: (np.ndarray) The predicted y-values. Returns an array of NaNs if the model has not been fitted.
+    \item \textbf{How it Works}:
+        \begin{enumerate}
+            \item \textbf{Check if Fitted}: If \texttt{self.models\_} is empty (model not fitted), returns an array of NaNs of the same shape as \texttt{x}.
+            \item \textbf{Input Conversion}: Converts \texttt{x} to a NumPy array.
+            \item \textbf{Initialization}: Creates an output array \texttt{y\_pred} filled with NaNs.
+            \item \textbf{Handle Breakpoints}:
+                \begin{itemize}
+                    \item It defines segments based on \texttt{self.breakpoints\_}. The first segment goes from \texttt{-np.inf} to the first breakpoint, subsequent segments are between breakpoints, and the last segment goes from the last breakpoint to \texttt{np.inf}.
+                    \item It iterates through each segment and its corresponding model \texttt{[a, b]} from \texttt{self.models\_}.
+                    \item For each segment, it identifies the x-values from the input \texttt{x} that fall within that segment's range (\texttt{segment\_min < x <= segment\_max}).
+                    \item It further filters these x-values to include only those \texttt{x > 0} (as \texttt{log(x)} is undefined otherwise).
+                    \item For these valid x-values, it calculates \texttt{y\_pred = a + b * np.log(x)}.
+                \end{itemize}
+        \end{enumerate}
+\end{itemize}
+
+\subsubsection{\texttt{get\_equations(self)}}
+\begin{itemize}
+    \item \textbf{Purpose}: Returns a list of strings, where each string is the equation of the logarithmic model for a segment.
+    \item \textbf{Returns}: (list) A list of strings representing the equations (e.g., \texttt{["y = 1.23 + 4.56 * log(x)", ...]}) or an empty list if the model is not fitted.
+    \item \textbf{How it Works}:
+        \begin{enumerate}
+            \item Iterates through \texttt{self.models\_} (which contains \texttt{[a, b]} for each segment).
+            \item For each model, formats the equation string as \texttt{f"y = {a:.2f} + {b:.2f} * log(x)"}.
+            \item Appends each formatted string to a list.
+        \end{enumerate}
+\end{itemize}
+
+\subsubsection{\texttt{get\_universal\_function(self)}}
+\begin{itemize}
+    \item \textbf{Purpose}: Creates and returns a single Python function that can evaluate the entire piecewise model for any given x-value(s).
+    \item \textbf{Returns}: (callable) A function that takes an array of x-values and returns an array of predicted y-values based on the fitted piecewise model. Returns \texttt{None} if the model is not fitted.
+    \item \textbf{How it Works}:
+        \begin{enumerate}
+            \item \textbf{Check if Fitted}: If \texttt{self.models\_} is empty, returns \texttt{None}.
+            \item \textbf{Define Inner Function}: Defines an inner function, say \texttt{universal\_func(x\_values)}, which will be returned.
+            \item \textbf{Inner Function Logic}: This inner function essentially replicates the logic of the \texttt{predict} method:
+                \begin{itemize}
+                    \item Converts input \texttt{x\_values} to a NumPy array.
+                    \item Initializes \texttt{y\_pred} with NaNs.
+                    \item Iterates through segments defined by \texttt{self.breakpoints\_} and \texttt{self.models\_}.
+                    \item For each segment, applies the corresponding \texttt{a + b * log(x)} formula to the relevant \texttt{x\_values} (where \texttt{x > 0}).
+                    \item Returns the populated \texttt{y\_pred} array.
+                \end{itemize}
+            \item Returns the \texttt{universal\_func}.
+        \end{enumerate}
+\end{itemize}
+
+\subsubsection{\texttt{get\_confidence\_intervals(self, x, confidence=0.95)}}
+\begin{itemize}
+    \item \textbf{Purpose}: Calculates the confidence intervals for the predictions of the piecewise logarithmic model at given x-values.
+    \item \textbf{Parameters}:
+        \begin{itemize}
+            \item \texttt{x} (np.ndarray): The x-values for which to calculate confidence intervals.
+            \item \texttt{confidence} (float): The confidence level (e.g., 0.95 for 95\% confidence). Default is 0.95.
+        \end{itemize}
+    \item \textbf{Returns}: (tuple) A tuple \texttt{(lower\_bound, upper\_bound)}, where each is a NumPy array of the same shape as \texttt{x}, containing the lower and upper confidence bounds for the predictions. Returns \texttt{(None, None)} if the model is not fitted or if \texttt{x} is empty.
+    \item \textbf{How it Works}:
+        \begin{enumerate}
+            \item \textbf{Validation}: Checks if the model is fitted and if \texttt{x} is not empty.
+            \item \textbf{Initialization}: Creates \texttt{lower\_bound} and \texttt{upper\_bound} arrays filled with NaNs.
+            \item \textbf{Iterate Through Segments}:
+                \begin{itemize}
+                    \item For each segment defined by \texttt{self.breakpoints\_} and its corresponding model in \texttt{self.models\_}:
+                        \begin{enumerate}
+                            \item Identify the original data points (\texttt{x\_segment}, \texttt{y\_segment}) that were used to fit this segment's model.
+                            \item Filter the input \texttt{x} to get values \texttt{x\_eval} that fall within this segment and are positive.
+                            \item If no \texttt{x\_eval} or insufficient data in \texttt{x\_segment} (less than 2 points), continue to the next segment.
+                            \item Transform \texttt{x\_segment} and \texttt{x\_eval} using \texttt{np.log}.
+                            \item Calculate predicted values \texttt{y\_pred\_segment} for \texttt{x\_eval} using the segment's model.
+                            \item Calculate the sum of squared errors (SSE) for the segment fit.
+                            \item Calculate the standard error of the estimate (SEE) for the segment.
+                            \item For each point in \texttt{log\_x\_eval}:
+                                \begin{itemize}
+                                    \item Calculate the t-statistic for the given confidence level and degrees of freedom (\texttt{len(x\_segment) - 2}).
+                                    \item Calculate the margin of error using the SEE, t-statistic, and leverage of the point. The leverage depends on the point's distance from the mean of \texttt{log(x\_segment)} and the sum of squares of \texttt{log(x\_segment)}.
+                                    \item The confidence interval for that point is \texttt{y\_pred ± margin\_of\_error}.
+                                \end{itemize}
+                            \item Store these bounds in the correct positions in \texttt{lower\_bound} and \texttt{upper\_bound}.
+                        \end{enumerate}
+                \end{itemize}
+            \item Returns \texttt{(lower\_bound, upper\_bound)}.
+        \end{enumerate}
+\end{itemize}
+
+\end{document}

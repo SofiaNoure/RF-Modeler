@@ -8,10 +8,11 @@ class FunctionPlotter:
         self.full_range = (-10000, 10000)  # Full calculation range
         self.display_range = (-20, 20)      # Default visible range
         self.num_points = {
-            'display': 1500,  # Increased points for smoother display
-            'full': 15000    # Increased points for better accuracy
+            'display': 5000,  # Increased points for smoother display
+            'full': 50000     # Increased points for full range
         }
         self.max_y_bound = 1e6
+        self.periodic_funcs = ['sin', 'cos', 'tan', 'sinh', 'cosh', 'tanh']
 
     def prepare_function_string(self, function_str):
         """Convert mathematical notation to numpy equivalents"""
@@ -60,78 +61,79 @@ class FunctionPlotter:
         processed_func = self.prepare_function_string(function_str)
         
         try:
-            # Import scipy.special for advanced functions if needed
             import scipy.special
             
-            # Check for functions with special domain requirements
+            has_periodic = any(func in processed_func.lower() for func in self.periodic_funcs)
             has_log = any(term in processed_func.lower() for term in ['log(', 'log10(', 'log2('])
-            has_arcsin = 'arcsin(' in processed_func
-            has_arccos = 'arccos(' in processed_func
-            has_gamma = 'gamma(' in processed_func
-            has_beta = 'beta(' in processed_func
             has_sqrt = 'sqrt(' in processed_func
             
-            # First evaluate in display range with higher density
-            x_display = np.linspace(self.display_range[0], self.display_range[1], 
-                                  self.num_points['display'])
-            
-            # Handle domain restrictions
-            if has_log or has_sqrt:
-                x_display = x_display[x_display > 0]
-            if has_arcsin or has_arccos:
-                x_display = x_display[(x_display >= -1) & (x_display <= 1)]
-            if has_gamma or has_beta:
-                x_display = x_display[x_display > 0]
-            
-            # Evaluate display range
-            y_display = eval(processed_func, {"x": x_display, "np": np, "scipy": scipy})
-            
-            # Then evaluate full range with lower density
-            if has_log or has_sqrt:
-                # For log/sqrt functions, use only positive values and logarithmic spacing
-                x_full = np.concatenate([
-                    np.logspace(-6, np.log10(min(x_display)), 
-                              self.num_points['full'] // 4),
-                    x_display,
-                    np.logspace(np.log10(max(x_display)), 6, 
-                              self.num_points['full'] // 4)
+            if has_periodic:
+                # For periodic functions, use a denser sampling that scales with the range
+                # and ensures we capture enough points per period
+                x_ranges = []
+                base_points = self.num_points['display']
+                
+                # Generate ranges with increasing density for periodic functions
+                ranges = [
+                    (-10000, -1000, base_points),
+                    (-1000, -100, base_points),
+                    (-100, -20, base_points),
+                    (-20, 20, self.num_points['display']),  # Higher density in visible range
+                    (20, 100, base_points),
+                    (100, 1000, base_points),
+                    (1000, 10000, base_points)
+                ]
+                
+                for start, end, points in ranges:
+                    if has_log and start <= 0:  # Skip negative ranges for log functions
+                        continue
+                    x_ranges.append(np.linspace(start, end, points))
+                
+                x_full = np.concatenate(x_ranges)
+                
+            elif has_log or has_sqrt:
+                # For log/sqrt, use logarithmic spacing
+                x_ranges = []
+                if not has_sqrt:  # Allow small negative numbers for log only
+                    x_ranges.append(np.linspace(-20, -0.001, self.num_points['display'] // 4))
+                x_ranges.extend([
+                    np.logspace(-3, 0, self.num_points['display'] // 2),
+                    np.logspace(0, 4, self.num_points['display'])
                 ])
-            elif has_arcsin or has_arccos:
-                # For inverse trig functions, limit to [-1, 1]
-                x_full = np.linspace(-1, 1, self.num_points['full'])
-            elif has_gamma or has_beta:
-                # For gamma/beta functions, use positive values with logarithmic spacing
-                x_full = np.concatenate([
-                    np.logspace(-3, 0, self.num_points['full'] // 4),
-                    np.logspace(0, 3, self.num_points['full'] // 4)
-                ])
+                x_full = np.concatenate(x_ranges)
             else:
-                # For regular functions, use linear spacing
-                x_full = np.concatenate([
-                    np.linspace(self.full_range[0], self.display_range[0], 
-                              self.num_points['full'] // 4),
-                    x_display,
-                    np.linspace(self.display_range[1], self.full_range[1], 
-                              self.num_points['full'] // 4)
-                ])
+                # For regular functions, use adaptive linear spacing
+                x_ranges = []
+                base_points = self.num_points['display'] // 4
+                
+                # Define ranges with different densities
+                ranges = [
+                    (-10000, -1000, base_points),
+                    (-1000, -100, base_points),
+                    (-100, -20, base_points),
+                    (-20, 20, self.num_points['display']),  # Higher density in visible range
+                    (20, 100, base_points),
+                    (100, 1000, base_points),
+                    (1000, 10000, base_points)
+                ]
+                
+                for start, end, points in ranges:
+                    x_ranges.append(np.linspace(start, end, points))
+                
+                x_full = np.concatenate(x_ranges)
             
             x_full = np.unique(x_full)  # Remove duplicates
-            
-            # Evaluate the function
             y_full = eval(processed_func, {"x": x_full, "np": np, "scipy": scipy})
             
-            # Remove invalid values
+            # Remove invalid values and extreme values
             mask = np.isfinite(y_full)
             x_full = x_full[mask]
             y_full = y_full[mask]
-            
-            # Clip extreme values for better display
             y_full = np.clip(y_full, -self.max_y_bound, self.max_y_bound)
             
             return x_full, y_full
             
         except Exception as e:
-            # Add descriptive error messages for common issues
             if "log" in str(e).lower():
                 raise ValueError("Logarithm error: Cannot compute log of zero or negative values")
             elif "sqrt" in str(e).lower():

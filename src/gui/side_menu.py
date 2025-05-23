@@ -2,7 +2,8 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
                              QPushButton, QLabel, 
                              QStackedWidget, QTextEdit, QFileDialog, QProgressBar,
                              QScrollArea, QFrame, QDialog, QSpinBox, QCheckBox,
-                             QDoubleSpinBox, QApplication)
+                             QDoubleSpinBox, QApplication, QRadioButton, QSpacerItem,
+                             QSizePolicy)
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QKeySequence, QShortcut, QPixmap, QPainter, QPen, QColor
 import numpy as np
@@ -713,10 +714,55 @@ class SideMenu(QWidget):
     def _setup_manual_menu(self):
         manual_menu = QWidget()
         manual_layout = QVBoxLayout(manual_menu)
-        manual_layout.setSpacing(8)
+        manual_layout.setSpacing(12)  # Increased spacing for better separation
         manual_layout.setContentsMargins(10, 10, 10, 10)
+
+        # Plot mode selection section
+        plot_mode_container = QFrame()  # Use QFrame for better visual grouping
+        plot_mode_container.setStyleSheet("QFrame { background-color: transparent; }")
+        plot_mode_layout = QVBoxLayout(plot_mode_container)
+        plot_mode_layout.setContentsMargins(0, 0, 0, 0)
+        plot_mode_layout.setSpacing(8)
         
-        # Top part - Function input
+        # Add label above the mode buttons
+        plot_mode_label = QLabel("Plot Mode")
+        plot_mode_label.setStyleSheet(Styles.LABEL_TITLE)
+        plot_mode_layout.addWidget(plot_mode_label)
+        
+        # Button container for horizontal layout
+        button_container = QWidget()
+        button_layout = QHBoxLayout(button_container)
+        button_layout.setContentsMargins(0, 0, 0, 0)
+        button_layout.setSpacing(8)
+
+        # Create mode selection buttons
+        self.regular_mode = QRadioButton("Regular")
+        self.segmented_mode = QRadioButton("Segmented")
+        
+        # Apply styles
+        self.regular_mode.setStyleSheet(Styles.PLOT_MODE_BUTTON)
+        self.segmented_mode.setStyleSheet(Styles.PLOT_MODE_BUTTON)
+        
+        # Set default state
+        self.regular_mode.setChecked(True)
+        
+        # Connect signals
+        self.regular_mode.toggled.connect(self._on_plot_mode_changed)
+        self.segmented_mode.toggled.connect(self._on_plot_mode_changed)
+        
+        # Add to layout
+        button_layout.addWidget(self.regular_mode)
+        button_layout.addWidget(self.segmented_mode)
+        button_layout.addStretch()
+        
+        plot_mode_layout.addWidget(button_container)
+        manual_layout.addWidget(plot_mode_container)
+        
+        # Add a small spacer before the function input section
+        spacer = QSpacerItem(20, 10, QSizePolicy.Minimum, QSizePolicy.Fixed)
+        manual_layout.addItem(spacer)
+
+        # Function input section
         input_container = QWidget()
         input_layout = QVBoxLayout(input_container)
         input_layout.setSpacing(6)
@@ -991,6 +1037,21 @@ class SideMenu(QWidget):
                     self.parent.ax.set_title('Function Plot with Background')
                     self.parent.canvas.draw()
 
+    def _on_plot_mode_changed(self):
+        """Handle plot mode changes"""
+        if self.regular_mode.isChecked():
+            # Switch to regular mode
+            if hasattr(self, 'function_input') and self.function_input.toPlainText():
+                self.plot_function()  # Re-plot with current function
+        else:
+            # Switch to segmented mode
+            if hasattr(self, 'function_input') and self.function_input.toPlainText():
+                self.plot_segmented_function()  # We'll implement this later
+
+    def plot_segmented_function(self):
+        """Plot function in segmented mode (to be implemented)"""
+        pass  # We'll implement this later
+        
     def plot_function(self):
         # Store current axis limits if they exist
         if hasattr(self.parent, 'ax') and self.parent.ax is not None:
@@ -1039,8 +1100,20 @@ class SideMenu(QWidget):
                     zorder=0  # Ensure image is behind the plot
                 )
             
-            # Plot the function with higher zorder to appear above the background
-            self.parent.ax.plot(x, y, 'b-', linewidth=2, zorder=2)
+            if self.regular_mode.isChecked():
+                # Regular plotting mode
+                self.parent.ax.plot(x, y, 'b-', linewidth=2, zorder=2)
+            else:
+                # Segmented plotting mode
+                # Split the function into segments for visualization
+                num_segments = 5  # Default number of segments
+                segments = np.array_split(np.arange(len(x)), num_segments)
+                colors = plt.cm.rainbow(np.linspace(0, 1, num_segments))
+                
+                for i, (segment, color) in enumerate(zip(segments, colors), 1):
+                    self.parent.ax.plot(x[segment], y[segment], '-', 
+                                      linewidth=2, zorder=2, color=color,
+                                      label=f'Segment {i}')
             self.parent.ax.invert_yaxis()  # Invert y-axis for path loss
             
             # Enhanced grid with proper z-order
@@ -1055,7 +1128,12 @@ class SideMenu(QWidget):
             # Labels
             self.parent.ax.set_xlabel('x')
             self.parent.ax.set_ylabel('y')
-            self.parent.ax.set_title(f'Plot of {function_str}')
+            plot_mode = "Regular" if self.regular_mode.isChecked() else "Segmented"
+            self.parent.ax.set_title(f'{plot_mode} Plot of {function_str}')
+            
+            # Add legend for segmented mode
+            if self.segmented_mode.isChecked():
+                self.parent.ax.legend(fontsize='x-small', title='Function Segments')
             
             # Restore previous view limits if they existed, otherwise set default
             if has_previous_view:
