@@ -714,15 +714,15 @@ class SideMenu(QWidget):
     def _setup_manual_menu(self):
         manual_menu = QWidget()
         manual_layout = QVBoxLayout(manual_menu)
-        manual_layout.setSpacing(12)  # Increased spacing for better separation
+        manual_layout.setSpacing(8)  # Reduced spacing
         manual_layout.setContentsMargins(10, 10, 10, 10)
 
         # Plot mode selection section
-        plot_mode_container = QFrame()  # Use QFrame for better visual grouping
+        plot_mode_container = QFrame()
         plot_mode_container.setStyleSheet("QFrame { background-color: transparent; }")
         plot_mode_layout = QVBoxLayout(plot_mode_container)
-        plot_mode_layout.setContentsMargins(0, 0, 0, 0)
         plot_mode_layout.setSpacing(8)
+        plot_mode_layout.setContentsMargins(0, 0, 0, 0)
         
         # Add label above the mode buttons
         plot_mode_label = QLabel("Plot Mode")
@@ -746,38 +746,33 @@ class SideMenu(QWidget):
         # Set default state
         self.regular_mode.setChecked(True)
         
-        # Connect signals
-        self.regular_mode.toggled.connect(self._on_plot_mode_changed)
-        self.segmented_mode.toggled.connect(self._on_plot_mode_changed)
-        
         # Add to layout
         button_layout.addWidget(self.regular_mode)
         button_layout.addWidget(self.segmented_mode)
         button_layout.addStretch()
         
         plot_mode_layout.addWidget(button_container)
-        manual_layout.addWidget(plot_mode_container)
         
-        # Add a small spacer before the function input section
-        spacer = QSpacerItem(20, 10, QSizePolicy.Minimum, QSizePolicy.Fixed)
-        manual_layout.addItem(spacer)
+        # Create mode stack
+        self.mode_stack = QStackedWidget()
+        
+        # Regular mode container
+        self.regular_mode_container = QWidget()
+        regular_layout = QVBoxLayout(self.regular_mode_container)
+        regular_layout.setSpacing(8)
+        regular_layout.setContentsMargins(0, 10, 0, 0)
 
-        # Function input section
-        input_container = QWidget()
-        input_layout = QVBoxLayout(input_container)
-        input_layout.setSpacing(6)
-        input_layout.setContentsMargins(0, 0, 0, 0)
-        
+        # Function input section for regular mode
         self.function_label = QLabel("Enter function:")
         self.function_label.setStyleSheet(Styles.LABEL)
-        input_layout.addWidget(self.function_label)
+        regular_layout.addWidget(self.function_label)
         
         self.function_input = QTextEdit()
         self.function_input.setPlaceholderText("e.g., sin(x) or x^2")
         self.function_input.setMinimumWidth(250)
         self.function_input.setMaximumHeight(60)
         self.function_input.setStyleSheet(Styles.INPUT_FIELD)
-        input_layout.addWidget(self.function_input)
+        regular_layout.addWidget(self.function_input)
         
         # Add buttons row
         button_row = QHBoxLayout()
@@ -791,22 +786,41 @@ class SideMenu(QWidget):
         # Add apply button
         self.apply_btn = QPushButton("Apply")
         self.apply_btn.setStyleSheet(Styles.BUTTON_PRIMARY)
-        self.apply_btn.setToolTip("Plot the entered mathematical function.") # Add tooltip
+        button_row.addStretch()
         button_row.addWidget(self.apply_btn)
+        regular_layout.addLayout(button_row)
         
-        input_layout.addLayout(button_row)
-        manual_layout.addWidget(input_container)
-        
-        # Bottom part - Functions panel
+        # Add Functions panel to regular mode
         self.functions_panel = FunctionsPanel(self)
         self.functions_panel.setMinimumHeight(250)
-        manual_layout.addWidget(self.functions_panel)
+        regular_layout.addWidget(self.functions_panel)
         
-        manual_layout.addStretch()
+        # Segmented mode container
+        self.segmented_mode_container = QWidget()
+        segmented_layout = QVBoxLayout(self.segmented_mode_container)
+        segmented_layout.setSpacing(8)
+        segmented_layout.setContentsMargins(0, 10, 0, 0)
+        
+        # Add placeholder text for segmented mode
+        placeholder_label = QLabel("Segmented mode features coming soon...")
+        placeholder_label.setStyleSheet(Styles.LABEL)
+        placeholder_label.setAlignment(Qt.AlignCenter)
+        segmented_layout.addWidget(placeholder_label)
+        segmented_layout.addStretch()
+
+        # Add containers to stack
+        self.mode_stack.addWidget(self.regular_mode_container)
+        self.mode_stack.addWidget(self.segmented_mode_container)
+        
+        # Add mode stack to the layout
+        plot_mode_layout.addWidget(self.mode_stack)
+        manual_layout.addWidget(plot_mode_container)
+        
+        # Connect radio buttons to the stack widget
+        self.regular_mode.toggled.connect(lambda checked: self.mode_stack.setCurrentIndex(0) if checked else None)
+        self.segmented_mode.toggled.connect(lambda checked: self.mode_stack.setCurrentIndex(1) if checked else None)
+        
         self.stack.addWidget(manual_menu)
-        
-        # Initialize background image storage
-        self.background_image = None
 
     def _setup_comparison_menu(self):
         comparison_menu = QWidget()
@@ -1039,14 +1053,27 @@ class SideMenu(QWidget):
 
     def _on_plot_mode_changed(self):
         """Handle plot mode changes"""
-        if self.regular_mode.isChecked():
+        is_regular = self.regular_mode.isChecked()
+        if is_regular:
+            self.regular_mode_container.raise_()  # Bring regular container to front
+        else:
+            self.segmented_mode_container.raise_()  # Bring segmented container to front
+            
+        # Prevent both from being visible at the same time
+        self.regular_mode_container.setVisible(is_regular)
+        self.segmented_mode_container.setVisible(not is_regular)
+        
+        if is_regular:
             # Switch to regular mode
             if hasattr(self, 'function_input') and self.function_input.toPlainText():
                 self.plot_function()  # Re-plot with current function
         else:
-            # Switch to segmented mode
-            if hasattr(self, 'function_input') and self.function_input.toPlainText():
-                self.plot_segmented_function()  # We'll implement this later
+            # Switch to segmented mode - will be implemented later
+            pass
+        
+        # Force layout update
+        self.regular_mode_container.adjustSize()
+        self.segmented_mode_container.adjustSize()
 
     def plot_segmented_function(self):
         """Plot function in segmented mode (to be implemented)"""
