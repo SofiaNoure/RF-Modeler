@@ -35,8 +35,8 @@ class MathPlotterApp(QMainWindow):
         self._setup_timer()
         self._connect_signals()
         
-        # Initialize with empty plot
-        self.init_plot()
+        # Initialize with placeholder for auto tab (default)
+        self.init_plot_with_placeholder("auto")
 
     def _initialize_window(self):
         self.setWindowTitle("Project 19")
@@ -232,6 +232,42 @@ class MathPlotterApp(QMainWindow):
         self.ax.set_title('Function Plot')
         self.ax.set_xlim(0, 20)
         self.ax.set_ylim(20, 0)  # Inverted y-axis
+        self.canvas.draw()
+
+    def init_plot_with_placeholder(self, tab_type="auto"):
+        """Initialize plot with appropriate placeholder message based on tab type"""
+        # Clear any existing plots and colorbars
+        self.figure.clear()
+        self.ax = self.figure.add_subplot(111)
+        # Remove any existing colorbars
+        for im in self.ax.images:
+            if hasattr(im, 'colorbar'):
+                im.colorbar.remove()
+        
+        # Set basic plot properties
+        self.ax.grid(True, alpha=0.3)
+        self.ax.set_xlabel('x')
+        self.ax.set_ylabel('Path Loss (dB)')
+        self.ax.set_xlim(0, 20)
+        self.ax.set_ylim(20, 0)  # Inverted y-axis
+        
+        # Add placeholder text based on tab type
+        if tab_type == "manual":
+            placeholder_text = "Please, upload an image first"
+            title = "Manual Function Plot"
+        else:  # auto, comparison, prediction tabs
+            placeholder_text = "Please, upload a CSV first"
+            title = "Data Visualization"
+        
+        # Display placeholder text in the center of the plot
+        self.ax.text(0.5, 0.5, placeholder_text, 
+                    ha='center', va='center', 
+                    transform=self.ax.transAxes,
+                    fontsize=16, 
+                    color='gray',
+                    bbox=dict(boxstyle='round,pad=0.5', facecolor='lightgray', alpha=0.7))
+        
+        self.ax.set_title(title)
         self.canvas.draw()
 
     def update_report_action_state(self, enabled: bool):

@@ -1479,10 +1479,28 @@ class SideMenu(QWidget):
             self.is_heatmap = False
             self.view_toggle_btn.setText("Graph View")
             self.view_toggle_btn.setChecked(False)
-            self.parent.init_plot()
-            self.plot_function()
+            # Initialize with manual placeholder
+            self.parent.init_plot_with_placeholder("manual")
+            # Only plot function if there's content in the input
+            function_str = self.function_input.toPlainText().strip()
+            if function_str:
+                self.plot_function()
         elif previous_tab == 1 and index in [0, 2, 3]:  # Switching FROM Manual
-            self._apply_cached_view()
+            if index == 2:  # Switching to Comparison tab
+                if self.datasets:
+                    self._plot_comparison()
+                else:
+                    self.parent.init_plot_with_placeholder("auto")
+            elif index == 0:  # Switching to Auto tab
+                if self.csv_data is not None:
+                    self._apply_cached_view()
+                else:
+                    self.parent.init_plot_with_placeholder("auto")
+            elif index == 3:  # Switching to Prediction tab
+                if self.csv_data is not None and self.current_model is not None:
+                    self._apply_cached_view()
+                else:
+                    self.parent.init_plot_with_placeholder("auto")
         elif previous_tab in [0, 2] and index == 3:  # Switching TO Prediction
             # Keep Auto tab's graph by re-plotting with current model
             if self.current_model is not None:
@@ -1506,31 +1524,65 @@ class SideMenu(QWidget):
                     self.parent.ax.set_xlim(current_plot_state['xlim'])
                     self.parent.ax.set_ylim(current_plot_state['ylim'])
                     self.parent.canvas.draw()
+            else:
+                # No model available, show placeholder
+                self.parent.init_plot_with_placeholder("auto")
         elif previous_tab == 3 and index == 0:  # Switching back to Auto from Prediction
             # Restore previous Auto tab state
             if hasattr(self, '_cached_state'):
                 self.is_heatmap = self._cached_state.get('is_heatmap', False)
                 self.view_toggle_btn.setText("Heatmap View" if self.is_heatmap else "Graph View")
                 self.view_toggle_btn.setChecked(self.is_heatmap)
+                if self.csv_data is not None:
+                    self.auto_plot_function()
+                else:
+                    self.parent.init_plot_with_placeholder("auto")
+            elif self.csv_data is not None:
                 self.auto_plot_function()
+            else:
+                self.parent.init_plot_with_placeholder("auto")
         elif previous_tab in [0, 2, 3] and index in [0, 2]:  # Between Auto/Comparison tabs
-            # Preserve plot state but update UI
-            current_plot_state = {
-                'xlim': self.parent.ax.get_xlim() if hasattr(self.parent, 'ax') else None,
-                'ylim': self.parent.ax.get_ylim() if hasattr(self.parent, 'ax') else None
-            }
-            
-            # Update UI and replot as needed
-            if index == 0:
-                self.auto_plot_function()
-            elif index == 2:
-                self._plot_comparison()
-            
-            # Restore view limits if they existed
-            if current_plot_state['xlim'] and hasattr(self.parent, 'ax'):
-                self.parent.ax.set_xlim(current_plot_state['xlim'])
-                self.parent.ax.set_ylim(current_plot_state['ylim'])
-                self.parent.canvas.draw()
+            # Check if we have data before plotting
+            if self.csv_data is not None or (index == 2 and self.datasets):
+                # Preserve plot state but update UI
+                current_plot_state = {
+                    'xlim': self.parent.ax.get_xlim() if hasattr(self.parent, 'ax') else None,
+                    'ylim': self.parent.ax.get_ylim() if hasattr(self.parent, 'ax') else None
+                }
+                
+                # Update UI and replot as needed
+                if index == 0:
+                    self.auto_plot_function()
+                elif index == 2:
+                    self._plot_comparison()
+                
+                # Restore view limits if they existed
+                if current_plot_state['xlim'] and hasattr(self.parent, 'ax'):
+                    self.parent.ax.set_xlim(current_plot_state['xlim'])
+                    self.parent.ax.set_ylim(current_plot_state['ylim'])
+                    self.parent.canvas.draw()
+            else:
+                # No data available, show placeholder
+                if index == 0:  # Auto tab
+                    self.parent.init_plot_with_placeholder("auto")
+                elif index == 2:  # Comparison tab
+                    self.parent.init_plot_with_placeholder("auto")
+        
+        # Handle initial tab setup when no previous context
+        if previous_tab == index:  # Same tab selected or initial setup
+            if index == 1:  # Manual tab
+                function_str = self.function_input.toPlainText().strip()
+                if not function_str:
+                    self.parent.init_plot_with_placeholder("manual")
+            elif index == 0:  # Auto tab
+                if self.csv_data is None:
+                    self.parent.init_plot_with_placeholder("auto")
+            elif index == 2:  # Comparison tab
+                if not self.datasets:
+                    self.parent.init_plot_with_placeholder("auto")
+            elif index == 3:  # Prediction tab
+                if self.csv_data is None:
+                    self.parent.init_plot_with_placeholder("auto")
 
         # Update active button and tab
         if index == 0:
@@ -1728,6 +1780,8 @@ class SideMenu(QWidget):
     def _plot_comparison(self):
         if not self.datasets:
             self.parent.statusBar.showMessage("Please add at least one dataset first", 5000)
+            # Show placeholder when no datasets are available
+            self.parent.init_plot_with_placeholder("auto")
             return
 
         try:
