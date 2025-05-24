@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, 
-                             QPushButton, QLabel, 
+                             QPushButton, QLabel, QLineEdit,
                              QStackedWidget, QTextEdit, QFileDialog, QProgressBar,
                              QScrollArea, QFrame, QDialog, QSpinBox, QCheckBox,
                              QDoubleSpinBox, QApplication, QRadioButton, QSpacerItem,
@@ -367,12 +367,13 @@ class FunctionsPanel(QWidget):
         super().__init__(parent)
         self.parent = parent
         self.layout = QVBoxLayout(self)
-        self.layout.setSpacing(2)  # Reduced spacing
-        self.layout.setContentsMargins(4, 2, 4, 2)  # Reduced margins
+        self.layout.setSpacing(4)  # Consistent spacing
+        self.layout.setContentsMargins(6, 4, 6, 4)  # Balanced margins
 
         # Create scrollable area for function categories
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)  # Prevent horizontal scroll
         scroll.setStyleSheet("""
             QScrollArea {
                 border: none;
@@ -386,7 +387,7 @@ class FunctionsPanel(QWidget):
         # Container for all categories
         container = QWidget()
         self.category_layout = QVBoxLayout(container)
-        self.category_layout.setSpacing(2)  # Reduced spacing
+        self.category_layout.setSpacing(4)  # Consistent spacing
         self.category_layout.setContentsMargins(0, 0, 0, 0)
         scroll.setWidget(container)
         
@@ -451,8 +452,8 @@ class FunctionsPanel(QWidget):
             # Create category container
             category_container = QWidget()
             category_layout = QVBoxLayout(category_container)
-            category_layout.setSpacing(2)
-            category_layout.setContentsMargins(0, 0, 0, 0)
+            category_layout.setSpacing(4)
+            category_layout.setContentsMargins(0, 0, 0, 4)  # Small bottom margin for separation
             
             # Create category header with toggle button
             header = QPushButton(category)
@@ -464,31 +465,32 @@ class FunctionsPanel(QWidget):
             # Create content container
             content_widget = QWidget()
             content_layout = QVBoxLayout(content_widget)
-            content_layout.setSpacing(2)
-            content_layout.setContentsMargins(0, 2, 0, 0)
+            content_layout.setSpacing(4)  # Consistent row spacing
+            content_layout.setContentsMargins(8, 4, 8, 4)  # Indent content slightly
             
             # Create rows with 3 functions each
             for i in range(0, len(functions), 3):
                 row_widget = QWidget()
                 row_layout = QHBoxLayout(row_widget)
-                row_layout.setContentsMargins(2, 2, 2, 2)
-                row_layout.setSpacing(2)
+                row_layout.setContentsMargins(0, 0, 0, 0)
+                row_layout.setSpacing(4)  # Consistent spacing
                 
+                # Add buttons for this row
                 for j in range(3):
                     if i + j < len(functions):
                         func = functions[i + j]
                         btn = QPushButton(func["display"])
-                        btn.setFixedSize(70, 32)  # Increased button size
+                        btn.setFixedSize(75, 32)  # Slightly wider for better text fit
                         btn.setStyleSheet(Styles.BUTTON_FUNCTION)
                         btn.clicked.connect(lambda checked=False, f=func["code"]: 
                                          self.parent.insert_function(f))
                         row_layout.addWidget(btn)
                     else:
-                        # Add empty space if row is not full
-                        spacer = QWidget()
-                        spacer.setFixedSize(70, 32)  # Match button size
-                        row_layout.addWidget(spacer)
+                        # Add spacer for alignment instead of empty widget
+                        row_layout.addStretch()
                 
+                # Ensure consistent alignment - left align all buttons
+                row_layout.addStretch()
                 content_layout.addWidget(row_widget)
             
             # Add content widget to category layout
@@ -801,12 +803,85 @@ class SideMenu(QWidget):
         segmented_layout.setSpacing(8)
         segmented_layout.setContentsMargins(0, 10, 0, 0)
         
-        # Add placeholder text for segmented mode
-        placeholder_label = QLabel("Segmented mode features coming soon...")
-        placeholder_label.setStyleSheet(Styles.LABEL)
-        placeholder_label.setAlignment(Qt.AlignCenter)
-        segmented_layout.addWidget(placeholder_label)
-        segmented_layout.addStretch()
+        # Segmented function header
+        segmented_header = QLabel("Segmented Function: y = (A + B×log(x)) × [step(x-T1) - step(x-T2)]\nPlotted on logarithmic x-axis (T1, T2 must be positive)")
+        segmented_header.setStyleSheet(Styles.LABEL_TITLE)
+        segmented_header.setWordWrap(True)
+        segmented_layout.addWidget(segmented_header)
+        
+        # Initialize segments list
+        self.segments = []
+        
+        # Create scroll area for segments
+        self.segments_scroll = QScrollArea()
+        self.segments_scroll.setWidgetResizable(True)
+        self.segments_scroll.setStyleSheet("""
+            QScrollArea { 
+                border: none;
+                background: transparent;
+            }
+            QScrollArea > QWidget > QWidget {
+                background: transparent;
+            }
+            QScrollBar:vertical {
+                border: none;
+                background: #1a1f2d;
+                width: 8px;
+                border-radius: 4px;
+            }
+            QScrollBar::handle:vertical {
+                background: #3b4253;
+                min-height: 20px;
+                border-radius: 4px;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                border: none;
+                background: none;
+            }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+                background: none;
+            }
+        """)
+        
+        # Container for all segments
+        self.segments_container = QWidget()
+        self.segments_layout = QVBoxLayout(self.segments_container)
+        self.segments_layout.setSpacing(8)
+        self.segments_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Add stretch to push segments to the top
+        self.segments_layout.addStretch()
+        
+        self.segments_scroll.setWidget(self.segments_container)
+        segmented_layout.addWidget(self.segments_scroll)
+        
+        # Button row for segmented mode
+        segmented_button_row = QHBoxLayout()
+        
+        # Add image upload button for segmented mode
+        self.upload_image_segmented_btn = QPushButton("Upload Background")
+        self.upload_image_segmented_btn.setStyleSheet(Styles.BUTTON_PRIMARY)
+        self.upload_image_segmented_btn.clicked.connect(self._upload_background_image)
+        segmented_button_row.addWidget(self.upload_image_segmented_btn)
+        
+        # Add segment button
+        add_segment_btn = QPushButton("+ Add Segment")
+        add_segment_btn.setStyleSheet(Styles.BUTTON_PRIMARY)
+        add_segment_btn.clicked.connect(self._add_segment)
+        segmented_button_row.addWidget(add_segment_btn)
+        
+        segmented_button_row.addStretch()
+        
+        # Apply button for segmented mode
+        self.segmented_apply_btn = QPushButton("Apply")
+        self.segmented_apply_btn.setStyleSheet(Styles.BUTTON_PRIMARY)
+        self.segmented_apply_btn.clicked.connect(self.plot_segmented_function)
+        segmented_button_row.addWidget(self.segmented_apply_btn)
+        
+        segmented_layout.addLayout(segmented_button_row)
+        
+        # Add first segment by default
+        self._add_segment()
 
         # Add containers to stack
         self.mode_stack.addWidget(self.regular_mode_container)
@@ -1076,8 +1151,312 @@ class SideMenu(QWidget):
         self.segmented_mode_container.adjustSize()
 
     def plot_segmented_function(self):
-        """Plot function in segmented mode (to be implemented)"""
-        pass  # We'll implement this later
+        """Plot function in segmented mode"""
+        try:
+            # Store current axis limits if they exist
+            if hasattr(self.parent, 'ax') and self.parent.ax is not None:
+                current_xlim = self.parent.ax.get_xlim()
+                current_ylim = self.parent.ax.get_ylim()
+                has_previous_view = True
+            else:
+                has_previous_view = False
+                
+            # Clear the plot
+            self.parent.figure.clear()
+            self.parent.ax = self.parent.figure.add_subplot(111)
+            
+            # If there's a background image, display it first
+            if hasattr(self, 'background_image') and self.background_image:
+                self.parent.ax.imshow(
+                    self.background_image['image'],
+                    extent=self.background_image['extent'],
+                    aspect='auto',
+                    alpha=0.3,
+                    zorder=0  # Ensure image is behind the plot
+                )
+            
+            if not self.segments:
+                self.parent.ax.text(0.5, 0.5, "No segments defined", 
+                                  ha='center', va='center', transform=self.parent.ax.transAxes)
+                self.parent.ax.set_title("No Segments")
+                self.parent.canvas.draw()
+                return
+            
+            # Validate segments and collect data
+            segment_data = []
+            x_min, x_max = float('inf'), float('-inf')
+            
+            for i, segment_widget in enumerate(self.segments):
+                try:
+                    A = float(segment_widget['A'].text() or 0)
+                    B = float(segment_widget['B'].text() or 0)
+                    T1 = float(segment_widget['T1'].text() or 0)
+                    T2 = float(segment_widget['T2'].text() or (T1 + 1))
+                    
+                    # Validate constraints for logarithmic plotting
+                    if T1 <= 0:
+                        self.parent.statusBar.showMessage(f"Error: T1 must be positive for log scale in segment {i+1}", 5000)
+                        return
+                    if T2 <= T1:
+                        self.parent.statusBar.showMessage(f"Error: T2 must be greater than T1 in segment {i+1}", 5000)
+                        return
+                    
+                    segment_data.append({'A': A, 'B': B, 'T1': T1, 'T2': T2})
+                    x_min = min(x_min, T1)
+                    x_max = max(x_max, T2)
+                    
+                except ValueError:
+                    self.parent.statusBar.showMessage(f"Error: Invalid values in segment {i+1}", 5000)
+                    return
+            
+            # Sort segments by T1 to ensure proper ordering
+            segment_data.sort(key=lambda s: s['T1'])
+            
+            # Generate plot data
+            colors = plt.cm.viridis(np.linspace(0, 1, len(segment_data)))
+            all_x = []
+            all_y = []
+            
+            # Extend the range a bit for better visualization, ensure positive values for log scale
+            range_extension = (x_max - x_min) * 0.1 if x_max > x_min else 1
+            plot_x_min = max(0.01, x_min - range_extension)  # Ensure minimum positive value for log scale
+            plot_x_max = x_max + range_extension
+            
+            # Generate x values using logarithmic spacing for better log scale visualization
+            x_full = np.logspace(np.log10(plot_x_min), np.log10(plot_x_max), 2000)
+            y_full = np.zeros_like(x_full)
+            
+            # Plot each segment
+            for i, (segment, color) in enumerate(zip(segment_data, colors)):
+                A, B, T1, T2 = segment['A'], segment['B'], segment['T1'], segment['T2']
+                
+                # Create mask for this segment's domain
+                mask = (x_full >= T1) & (x_full <= T2)
+                
+                # Calculate y values for this segment: y = A + B*log(x)
+                x_segment = x_full[mask]
+                if len(x_segment) > 0:
+                    # Ensure we don't take log of zero or negative values
+                    x_segment = np.maximum(x_segment, 1e-10)
+                    y_segment = A + B * np.log(x_segment)
+                    y_full[mask] = y_segment
+                    
+                    # Plot this segment with logarithmic x-axis
+                    self.parent.ax.semilogx(x_segment, y_segment, '-', 
+                                           linewidth=2.5, color=color, 
+                                           label=f'Segment {i+1}: y = {A:.2f} + {B:.2f}×ln(x) [{T1:.2f}, {T2:.2f}]')
+                    
+                    # Mark breakpoints with logarithmic plotting
+                    if i < len(segment_data) - 1:  # Not the last segment
+                        y_at_T2 = A + B * np.log(max(T2, 1e-10))
+                        self.parent.ax.semilogx(T2, y_at_T2, 'o', markersize=6, color=color, markeredgecolor='white')
+                    
+                    # Mark start point for first segment
+                    if i == 0:
+                        y_at_T1 = A + B * np.log(max(T1, 1e-10))
+                        self.parent.ax.semilogx(T1, y_at_T1, 'o', markersize=6, color=color, markeredgecolor='white')
+            
+            # Set up the plot with logarithmic x-axis
+            self.parent.ax.set_xlabel('Distance (log scale)')
+            self.parent.ax.set_ylabel('Path Loss (dB)')
+            self.parent.ax.set_title(f'Segmented Function Plot ({len(segment_data)} segments)')
+            self.parent.ax.grid(True, which='both', alpha=0.2)
+            self.parent.ax.grid(True, which='major', alpha=0.5)
+            self.parent.ax.legend(fontsize='x-small', loc='best')
+            
+            # Invert y-axis for path loss convention
+            self.parent.ax.invert_yaxis()
+            
+            # Restore previous view limits if they existed, otherwise set reasonable defaults
+            if has_previous_view:
+                self.parent.ax.set_xlim(current_xlim)
+                self.parent.ax.set_ylim(current_ylim)
+            else:
+                # Set reasonable axis limits for log scale only if no previous view
+                if len(segment_data) > 0:
+                    # Calculate y range from the actual plotted data
+                    valid_y = y_full[y_full != 0]
+                    if len(valid_y) > 0:
+                        y_min, y_max = np.min(valid_y), np.max(valid_y)
+                        y_range = y_max - y_min
+                        if y_range > 0:
+                            self.parent.ax.set_ylim(y_min - y_range * 0.1, y_max + y_range * 0.1)
+                    
+                    # Set log scale limits properly
+                    self.parent.ax.set_xlim(plot_x_min, plot_x_max)
+            
+            self.parent.canvas.draw()
+            self.parent.statusBar.showMessage("Segmented function plotted successfully", 3000)
+            
+        except Exception as e:
+            self.parent.statusBar.showMessage(f"Error plotting segmented function: {str(e)}", 5000)
+            print(f"Error in plot_segmented_function: {e}")
+
+    def _add_segment(self):
+        """Add a new segment to the segmented function"""
+        segment_index = len(self.segments)
+        
+        # Create segment container
+        segment_frame = QFrame()
+        segment_frame.setStyleSheet("""
+            QFrame {
+                background-color: #1a1f2d;
+                border: 1px solid #3a4255;
+                border-radius: 6px;
+                padding: 8px;
+                margin: 2px;
+            }
+        """)
+        segment_layout = QVBoxLayout(segment_frame)
+        segment_layout.setSpacing(6)
+        segment_layout.setContentsMargins(8, 8, 8, 8)
+        
+        # Segment header with remove button
+        header_layout = QHBoxLayout()
+        segment_title = QLabel(f"Segment {segment_index + 1}")
+        segment_title.setStyleSheet(Styles.LABEL_TITLE)
+        header_layout.addWidget(segment_title)
+        
+        # Remove button (only if more than 1 segment)
+        remove_btn = QPushButton("✕")
+        remove_btn.setFixedSize(24, 24)
+        remove_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #1e2433;
+                color: #e1e5ee;
+                border: none;
+                border-radius: 12px;
+                font-size: 14px;
+                padding: 0px;
+            }
+            QPushButton:hover {
+                background-color: #c94b4b;
+                color: white;
+            }
+        """)
+        remove_btn.clicked.connect(lambda: self._remove_segment(segment_frame))
+        header_layout.addStretch()
+        header_layout.addWidget(remove_btn)
+        
+        segment_layout.addLayout(header_layout)
+        
+        # Parameter input grid
+        params_grid = QGridLayout()
+        params_grid.setSpacing(6)
+        
+        # A parameter
+        params_grid.addWidget(QLabel("A:"), 0, 0)
+        A_input = QLineEdit()
+        A_input.setPlaceholderText("0.0")
+        A_input.setStyleSheet(Styles.INPUT_FIELD)
+        A_input.setFixedHeight(32)
+        params_grid.addWidget(A_input, 0, 1)
+        
+        # B parameter  
+        params_grid.addWidget(QLabel("B:"), 0, 2)
+        B_input = QLineEdit()
+        B_input.setPlaceholderText("1.0")
+        B_input.setStyleSheet(Styles.INPUT_FIELD)
+        B_input.setFixedHeight(32)
+        params_grid.addWidget(B_input, 0, 3)
+        
+        # T1 parameter (breaking point start)
+        params_grid.addWidget(QLabel("T1:"), 1, 0)
+        T1_input = QLineEdit()
+        T1_input.setStyleSheet(Styles.INPUT_FIELD)
+        T1_input.setFixedHeight(32)
+        
+        # Set T1 based on previous segment or default to 0.1 for first segment (log scale compatible)
+        if segment_index == 0:
+            T1_input.setText("0.1")
+            T1_input.setReadOnly(True)  # First segment always starts at 0.1
+            T1_input.setPlaceholderText("0.1 (fixed)")
+        else:
+            # Set T1 to match T2 of previous segment
+            if len(self.segments) > 0:
+                prev_T2 = self.segments[-1]['T2'].text()
+                T1_input.setText(prev_T2)
+                T1_input.setReadOnly(True)  # Make it read-only for continuity
+                T1_input.setPlaceholderText("Auto (continuous)")
+            else:
+                T1_input.setPlaceholderText("Start point")
+        
+        params_grid.addWidget(T1_input, 1, 1)
+        
+        # T2 parameter (breaking point end)
+        params_grid.addWidget(QLabel("T2:"), 1, 2)
+        T2_input = QLineEdit()
+        T2_input.setPlaceholderText("End point")
+        T2_input.setStyleSheet(Styles.INPUT_FIELD)
+        T2_input.setFixedHeight(32)
+        
+        # Set default T2 value
+        default_T2 = str(segment_index + 1) if segment_index == 0 else str(float(T1_input.text() or "0") + 1)
+        T2_input.setText(default_T2)
+        
+        # Connect T2 change to update next segment's T1
+        T2_input.textChanged.connect(lambda: self._update_segment_continuity())
+        
+        params_grid.addWidget(T2_input, 1, 3)
+        
+        segment_layout.addLayout(params_grid)
+        
+        # Store segment data
+        segment_data = {
+            'frame': segment_frame,
+            'title': segment_title,
+            'A': A_input,
+            'B': B_input,
+            'T1': T1_input,
+            'T2': T2_input,
+            'remove_btn': remove_btn
+        }
+        
+        self.segments.append(segment_data)
+        
+        # Insert before the stretch
+        self.segments_layout.insertWidget(self.segments_layout.count() - 1, segment_frame)
+        
+        # Update segment numbering and continuity
+        self._update_segment_numbering()
+        self._update_remove_buttons()
+
+    def _remove_segment(self, segment_frame):
+        """Remove a segment"""
+        # Find the segment to remove
+        segment_to_remove = None
+        for i, segment in enumerate(self.segments):
+            if segment['frame'] == segment_frame:
+                segment_to_remove = i
+                break
+        
+        if segment_to_remove is not None and len(self.segments) > 1:
+            # Remove from layout and delete
+            segment_frame.deleteLater()
+            del self.segments[segment_to_remove]
+            
+            # Update segment numbering and continuity
+            self._update_segment_numbering()
+            self._update_segment_continuity()
+            self._update_remove_buttons()
+
+    def _update_segment_numbering(self):
+        """Update segment titles with correct numbering"""
+        for i, segment in enumerate(self.segments):
+            segment['title'].setText(f"Segment {i + 1}")
+
+    def _update_segment_continuity(self):
+        """Update T1 values to maintain continuity between segments"""
+        for i in range(1, len(self.segments)):
+            # Set current segment's T1 to previous segment's T2
+            prev_T2 = self.segments[i-1]['T2'].text()
+            self.segments[i]['T1'].setText(prev_T2)
+
+    def _update_remove_buttons(self):
+        """Update remove button visibility - hide if only one segment"""
+        show_remove = len(self.segments) > 1
+        for segment in self.segments:
+            segment['remove_btn'].setVisible(show_remove)
         
     def plot_function(self):
         # Store current axis limits if they exist
@@ -1685,7 +2064,6 @@ class SideMenu(QWidget):
                 result_text = f"Distance: {distance:.2f}\nPredicted path loss: {prediction:.2f} dB"
                 if intervals is not None and len(intervals) > 0:
                     confidence = intervals[0]
-                    result_text += f"\n95% Confidence interval: {prediction:.2f} ± {confidence:.2f} dB"
                 self.prediction_result.setText(result_text)
             
         except Exception as e:

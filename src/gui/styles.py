@@ -286,12 +286,14 @@ class Styles:
             background-color: #1a1f2d;
             color: #e1e5ee;
             font-family: 'Inter', 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 500;
-            padding: 6px 10px;
+            padding: 6px 8px;
             border: 1px solid #3a4255;
             border-radius: 4px;
-            min-width: 65px;
+            min-width: 70px;
+            max-width: 75px;
+            text-align: center;
         }
         QPushButton:hover {
             background-color: #242938;
