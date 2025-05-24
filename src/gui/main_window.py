@@ -617,7 +617,16 @@ class MathPlotterApp(QMainWindow):
         ]
         
         # Update limits
-        self.ax.set_xlim(new_xlim)
+        # Check if x-axis is logarithmic and ensure positive values
+        if self.ax.get_xscale() == 'log':
+            # For logarithmic scale, ensure xlim values are positive
+            if new_xlim[0] > 0 and new_xlim[1] > 0:
+                self.ax.set_xlim(new_xlim)
+            # Don't update xlim if it would be non-positive on log scale
+        else:
+            self.ax.set_xlim(new_xlim)
+        
+        # Y limits are typically fine to update as-is
         self.ax.set_ylim(new_ylim)
         
         # Use blitting for faster redraw

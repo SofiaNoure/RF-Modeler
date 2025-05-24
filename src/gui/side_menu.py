@@ -362,6 +362,167 @@ class ImageUploadDialog(QDialog):
         finally:
             self._updating_spinbox = False
 
+class AxisMappingDialog(QDialog):
+    def __init__(self, parent=None, current_extent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Set Axis Range")
+        self.setModal(True)
+        self.setMinimumWidth(400)
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #1a1f2d;
+            }
+            QLabel {
+                color: #e1e5ee;
+                font-size: 13px;
+                font-weight: 500;
+            }
+            QLineEdit {
+                background-color: #242938;
+                color: #e1e5ee;
+                font-size: 13px;
+                padding: 8px;
+                border: 1px solid #3a4255;
+                border-radius: 4px;
+            }
+            QLineEdit:focus {
+                border: 1px solid #3b82f6;
+            }
+            QFrame {
+                background-color: #242938;
+                border-radius: 8px;
+            }
+        """)
+        
+        main_layout = QVBoxLayout(self)
+        main_layout.setSpacing(20)
+        main_layout.setContentsMargins(20, 20, 20, 20)
+        
+        # Title and description
+        title_label = QLabel("Configure Axis Mapping")
+        title_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #e1e5ee; margin-bottom: 10px;")
+        main_layout.addWidget(title_label)
+        
+        description_label = QLabel("Define the coordinate range for mapping the background image to the plot space.")
+        description_label.setStyleSheet("color: #9ca3af; font-size: 12px; margin-bottom: 15px;")
+        description_label.setWordWrap(True)
+        main_layout.addWidget(description_label)
+        
+        # Input fields container
+        inputs_frame = QFrame()
+        inputs_frame.setFrameStyle(QFrame.Panel | QFrame.Raised)
+        inputs_layout = QVBoxLayout(inputs_frame)
+        inputs_layout.setSpacing(15)
+        inputs_layout.setContentsMargins(15, 15, 15, 15)
+        
+        # X-axis range
+        x_range_label = QLabel("X-Axis Range")
+        x_range_label.setStyleSheet("font-weight: bold; color: #e1e5ee; margin-bottom: 5px;")
+        inputs_layout.addWidget(x_range_label)
+        
+        x_range_layout = QHBoxLayout()
+        x_range_layout.setSpacing(10)
+        
+        x_min_label = QLabel("Min:")
+        self.x_min_input = QLineEdit()
+        self.x_min_input.setPlaceholderText("e.g., -10")
+        
+        x_max_label = QLabel("Max:")
+        self.x_max_input = QLineEdit()
+        self.x_max_input.setPlaceholderText("e.g., 10")
+        
+        x_range_layout.addWidget(x_min_label)
+        x_range_layout.addWidget(self.x_min_input)
+        x_range_layout.addWidget(x_max_label)
+        x_range_layout.addWidget(self.x_max_input)
+        
+        inputs_layout.addLayout(x_range_layout)
+        
+        # Y-axis range
+        y_range_label = QLabel("Y-Axis Range")
+        y_range_label.setStyleSheet("font-weight: bold; color: #e1e5ee; margin-bottom: 5px;")
+        inputs_layout.addWidget(y_range_label)
+        
+        y_range_layout = QHBoxLayout()
+        y_range_layout.setSpacing(10)
+        
+        y_min_label = QLabel("Min:")
+        self.y_min_input = QLineEdit()
+        self.y_min_input.setPlaceholderText("e.g., -10")
+        
+        y_max_label = QLabel("Max:")
+        self.y_max_input = QLineEdit()
+        self.y_max_input.setPlaceholderText("e.g., 10")
+        
+        y_range_layout.addWidget(y_min_label)
+        y_range_layout.addWidget(self.y_min_input)
+        y_range_layout.addWidget(y_max_label)
+        y_range_layout.addWidget(self.y_max_input)
+        
+        inputs_layout.addLayout(y_range_layout)
+        
+        main_layout.addWidget(inputs_frame)
+        
+        # Set current values if provided
+        if current_extent:
+            self.x_min_input.setText(str(current_extent[0]))
+            self.x_max_input.setText(str(current_extent[1]))
+            self.y_min_input.setText(str(current_extent[2]))
+            self.y_max_input.setText(str(current_extent[3]))
+        else:
+            # Default values
+            self.x_min_input.setText("0")
+            self.x_max_input.setText("20")
+            self.y_min_input.setText("0")
+            self.y_max_input.setText("20")
+        
+        # Button layout
+        button_layout = QHBoxLayout()
+        button_layout.setSpacing(10)
+        
+        self.apply_btn = QPushButton("Apply")
+        self.apply_btn.setStyleSheet(Styles.BUTTON_PRIMARY)
+        self.apply_btn.clicked.connect(self.accept)
+        
+        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn.setStyleSheet(Styles.BUTTON_SECONDARY)
+        self.cancel_btn.clicked.connect(self.reject)
+        
+        button_layout.addStretch()
+        button_layout.addWidget(self.apply_btn)
+        button_layout.addWidget(self.cancel_btn)
+        
+        main_layout.addLayout(button_layout)
+        
+        # Connect Enter key to apply
+        self.apply_btn.setDefault(True)
+    
+    def get_extent(self):
+        """Get the user-defined extent values"""
+        try:
+            x_min = float(self.x_min_input.text())
+            x_max = float(self.x_max_input.text())
+            y_min = float(self.y_min_input.text())
+            y_max = float(self.y_max_input.text())
+            
+            # Validate ranges
+            if x_max <= x_min:
+                raise ValueError("X Max must be greater than X Min")
+            if y_max <= y_min:
+                raise ValueError("Y Max must be greater than Y Min")
+            
+            return [x_min, x_max, y_min, y_max]
+        except ValueError as e:
+            return None
+    
+    def accept(self):
+        """Override accept to validate inputs"""
+        extent = self.get_extent()
+        if extent is None:
+            # Show error message or highlight invalid fields
+            return
+        super().accept()
+
 class FunctionsPanel(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -544,6 +705,10 @@ class SideMenu(QWidget):
         self.cached_graph_view = None
         self.cached_heatmap_view = None
         self.last_active_tab = 0
+        
+        # Initialize axis mapping for background images
+        self.current_extent = None
+        self.background_image = None
 
         # Create input fields as instance variables using specialized widgets
         self.max_input = QSpinBox()
@@ -785,6 +950,12 @@ class SideMenu(QWidget):
         self.upload_image_btn.clicked.connect(self._upload_background_image)
         button_row.addWidget(self.upload_image_btn)
         
+        # Add set axis range button
+        self.set_axis_range_btn = QPushButton("Set Axis Range")
+        self.set_axis_range_btn.setStyleSheet(Styles.BUTTON_SECONDARY)
+        self.set_axis_range_btn.clicked.connect(self._set_axis_range)
+        button_row.addWidget(self.set_axis_range_btn)
+        
         # Add apply button
         self.apply_btn = QPushButton("Apply")
         self.apply_btn.setStyleSheet(Styles.BUTTON_PRIMARY)
@@ -863,6 +1034,12 @@ class SideMenu(QWidget):
         self.upload_image_segmented_btn.setStyleSheet(Styles.BUTTON_PRIMARY)
         self.upload_image_segmented_btn.clicked.connect(self._upload_background_image)
         segmented_button_row.addWidget(self.upload_image_segmented_btn)
+        
+        # Add set axis range button for segmented mode
+        self.set_axis_range_segmented_btn = QPushButton("Set Axis Range")
+        self.set_axis_range_segmented_btn.setStyleSheet(Styles.BUTTON_SECONDARY)
+        self.set_axis_range_segmented_btn.clicked.connect(self._set_axis_range)
+        segmented_button_row.addWidget(self.set_axis_range_segmented_btn)
         
         # Add segment button
         add_segment_btn = QPushButton("+ Add Segment")
@@ -1101,30 +1278,78 @@ class SideMenu(QWidget):
                 # Convert PIL image to numpy array
                 img_array = np.array(dialog.processed_image)
                 
-                # Update the plot with the background image
-                self.parent.figure.clear()
-                self.parent.ax = self.parent.figure.add_subplot(111)
-                
-                # Place image at (0,0) with extent matching image dimensions
+                # Store the image data
                 height, width = img_array.shape[:2]
-                self.parent.ax.imshow(img_array, extent=[0, width, 0, height], 
-                                    aspect='auto', alpha=0.3)
                 
-                # Store the image dimensions for future reference
+                # Use current extent if set, otherwise default to image dimensions
+                if self.current_extent is None:
+                    self.current_extent = [0, width, 0, height]
+                
                 self.background_image = {
                     'image': img_array,
-                    'extent': [0, width, 0, height]
+                    'extent': self.current_extent
                 }
                 
-                # If there's a current function, plot it over the image
-                if self.function_input.toPlainText().strip():
-                    self.plot_function()
+                # Update the plot
+                self._redraw_plot_with_image()
+
+    def _set_axis_range(self):
+        """Open dialog to set axis range for background image mapping"""
+        dialog = AxisMappingDialog(self, self.current_extent)
+        
+        if dialog.exec() == QDialog.Accepted:
+            new_extent = dialog.get_extent()
+            if new_extent:
+                self.current_extent = new_extent
+                
+                # Update background image extent if it exists
+                if self.background_image:
+                    self.background_image['extent'] = self.current_extent
+                    self._redraw_plot_with_image()
                 else:
-                    self.parent.ax.grid(True)
-                    self.parent.ax.set_xlabel('x')
-                    self.parent.ax.set_ylabel('y')
-                    self.parent.ax.set_title('Function Plot with Background')
-                    self.parent.canvas.draw()
+                    # No background image, just update axis limits
+                    if hasattr(self.parent, 'ax') and self.parent.ax is not None:
+                        self.parent.ax.set_xlim(self.current_extent[0], self.current_extent[1])
+                        self.parent.ax.set_ylim(self.current_extent[2], self.current_extent[3])
+                        self.parent.canvas.draw()
+
+    def _redraw_plot_with_image(self):
+        """Redraw the plot with background image using current extent"""
+        if not self.background_image:
+            return
+            
+        # Store current function content if in manual mode
+        function_str = ""
+        if hasattr(self, 'function_input'):
+            function_str = self.function_input.toPlainText().strip()
+        
+        # Clear and recreate the plot
+        self.parent.figure.clear()
+        self.parent.ax = self.parent.figure.add_subplot(111)
+        
+        # Display background image with current extent
+        self.parent.ax.imshow(
+            self.background_image['image'],
+            extent=self.background_image['extent'],
+            aspect='auto',
+            alpha=0.3,
+            zorder=0
+        )
+        
+        # Set axis limits to match the extent
+        self.parent.ax.set_xlim(self.background_image['extent'][0], self.background_image['extent'][1])
+        self.parent.ax.set_ylim(self.background_image['extent'][2], self.background_image['extent'][3])
+        
+        # If there's a function, plot it over the image
+        if function_str:
+            self.plot_function()
+        else:
+            # Just add basic plot elements
+            self.parent.ax.grid(True, alpha=0.3)
+            self.parent.ax.set_xlabel('x')
+            self.parent.ax.set_ylabel('y')
+            self.parent.ax.set_title('Function Plot with Background Image')
+            self.parent.canvas.draw()
 
     def _on_plot_mode_changed(self):
         """Handle plot mode changes"""
@@ -1158,8 +1383,13 @@ class SideMenu(QWidget):
                 current_xlim = self.parent.ax.get_xlim()
                 current_ylim = self.parent.ax.get_ylim()
                 has_previous_view = True
+                # Convert limits to log scale if currently in linear scale
+                if self.parent.ax.get_xscale() != 'log':
+                    current_xlim = (max(0.01, current_xlim[0]), current_xlim[1])
             else:
                 has_previous_view = False
+                current_xlim = (0.1, 100)  # Default log-scale view
+                current_ylim = (-100, 0)   # Default path loss range
                 
             # Clear the plot
             self.parent.figure.clear()
@@ -1214,16 +1444,16 @@ class SideMenu(QWidget):
             
             # Generate plot data
             colors = plt.cm.viridis(np.linspace(0, 1, len(segment_data)))
-            all_x = []
-            all_y = []
             
-            # Extend the range a bit for better visualization, ensure positive values for log scale
-            range_extension = (x_max - x_min) * 0.1 if x_max > x_min else 1
-            plot_x_min = max(0.01, x_min - range_extension)  # Ensure minimum positive value for log scale
-            plot_x_max = x_max + range_extension
+            # Generate x values using existing view limits if available, otherwise calculate new ones
+            if has_previous_view:
+                x_full = np.logspace(np.log10(current_xlim[0]), np.log10(current_xlim[1]), 2000)
+            else:
+                range_extension = (x_max - x_min) * 0.1 if x_max > x_min else 1
+                plot_x_min = max(0.01, x_min - range_extension)
+                plot_x_max = x_max + range_extension
+                x_full = np.logspace(np.log10(plot_x_min), np.log10(plot_x_max), 2000)
             
-            # Generate x values using logarithmic spacing for better log scale visualization
-            x_full = np.logspace(np.log10(plot_x_min), np.log10(plot_x_max), 2000)
             y_full = np.zeros_like(x_full)
             
             # Plot each segment
@@ -1267,23 +1497,19 @@ class SideMenu(QWidget):
             # Invert y-axis for path loss convention
             self.parent.ax.invert_yaxis()
             
-            # Restore previous view limits if they existed, otherwise set reasonable defaults
+            # Always restore previous view limits if they existed
+            # Otherwise use the limits that encompass all segments
             if has_previous_view:
                 self.parent.ax.set_xlim(current_xlim)
                 self.parent.ax.set_ylim(current_ylim)
             else:
-                # Set reasonable axis limits for log scale only if no previous view
-                if len(segment_data) > 0:
-                    # Calculate y range from the actual plotted data
-                    valid_y = y_full[y_full != 0]
-                    if len(valid_y) > 0:
-                        y_min, y_max = np.min(valid_y), np.max(valid_y)
-                        y_range = y_max - y_min
-                        if y_range > 0:
-                            self.parent.ax.set_ylim(y_min - y_range * 0.1, y_max + y_range * 0.1)
-                    
-                    # Set log scale limits properly
-                    self.parent.ax.set_xlim(plot_x_min, plot_x_max)
+                y_mask = (x_full >= x_min) & (x_full <= x_max)
+                y_visible = y_full[y_mask]
+                if len(y_visible) > 0:
+                    y_min, y_max = np.min(y_visible), np.max(y_visible)
+                    padding = (y_max - y_min) * 0.1
+                    self.parent.ax.set_ylim(y_max + padding, y_min - padding)  # Inverted for path loss
+                self.parent.ax.set_xlim(x_min * 0.5, x_max * 2)
             
             self.parent.canvas.draw()
             self.parent.statusBar.showMessage("Segmented function plotted successfully", 3000)
@@ -1291,7 +1517,7 @@ class SideMenu(QWidget):
         except Exception as e:
             self.parent.statusBar.showMessage(f"Error plotting segmented function: {str(e)}", 5000)
             print(f"Error in plot_segmented_function: {e}")
-
+    
     def _add_segment(self):
         """Add a new segment to the segmented function"""
         segment_index = len(self.segments)
