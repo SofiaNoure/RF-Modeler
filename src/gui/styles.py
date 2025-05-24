@@ -251,18 +251,19 @@ class Styles:
             background-color: #3a4255;
             border-left: 3px solid #3b82f6;
         }
-    """
-
+    """    
     PLOT_MODE_BUTTON = """
         QRadioButton {
-            padding: 8px 16px;
+            padding: 8px 16px 8px 48px;
             background-color: #2d3446;
             color: #e1e5ee;
             border: none;
             border-radius: 6px;
             font-weight: 500;
             font-size: 13px;
-            min-width: 100px;
+            min-width: 120px;
+            max-width: 120px;
+            text-align: left;
         }
         QRadioButton:hover {
             background-color: #3a4255;
@@ -276,8 +277,9 @@ class Styles:
             color: #3b82f6;
         }
         QRadioButton::indicator {
-            width: 0px;
-            height: 0px;
+            width: 13px;
+            height: 13px;
+            left: 0px;
         }
     """
 

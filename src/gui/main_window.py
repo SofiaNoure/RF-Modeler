@@ -26,6 +26,9 @@ class MathPlotterApp(QMainWindow):
         self._background = None
         self._need_draw = True
         
+        # Store y-axis inversion state
+        self.y_axis_inverted = True  # Default to inverted for RF path loss
+        
         # Initialize UI components
         self._initialize_window()
         self._initialize_plotter()
@@ -76,6 +79,16 @@ class MathPlotterApp(QMainWindow):
         zoom_out_action.triggered.connect(lambda: self._zoom_view(0.8))
         reset_view_action = view_menu.addAction("Reset View")
         reset_view_action.triggered.connect(self._reset_view)
+        
+        # Add separator before y-axis option
+        view_menu.addSeparator()
+        
+        # Add Invert Y-Axis option
+        self.invert_y_action = QAction("Invert Y-Axis", self)
+        self.invert_y_action.setCheckable(True)
+        self.invert_y_action.setChecked(self.y_axis_inverted)
+        self.invert_y_action.triggered.connect(self._toggle_y_axis_inversion)
+        view_menu.addAction(self.invert_y_action)
         
         # Help menu
         help_menu = menubar.addMenu("Help")
@@ -231,7 +244,11 @@ class MathPlotterApp(QMainWindow):
         self.ax.set_ylabel('Path Loss (dB)')
         self.ax.set_title('Function Plot')
         self.ax.set_xlim(0, 20)
-        self.ax.set_ylim(20, 0)  # Inverted y-axis
+        # Set y-axis limits based on inversion setting
+        if self.y_axis_inverted:
+            self.ax.set_ylim(20, 0)  # Inverted y-axis
+        else:
+            self.ax.set_ylim(0, 20)  # Normal y-axis
         self.canvas.draw()
 
     def init_plot_with_placeholder(self, tab_type="auto"):
@@ -249,7 +266,11 @@ class MathPlotterApp(QMainWindow):
         self.ax.set_xlabel('x')
         self.ax.set_ylabel('Path Loss (dB)')
         self.ax.set_xlim(0, 20)
-        self.ax.set_ylim(20, 0)  # Inverted y-axis
+        # Set y-axis limits based on inversion setting
+        if self.y_axis_inverted:
+            self.ax.set_ylim(20, 0)  # Inverted y-axis
+        else:
+            self.ax.set_ylim(0, 20)  # Normal y-axis
         
         # Add placeholder text based on tab type
         if tab_type == "manual":
@@ -636,6 +657,21 @@ class MathPlotterApp(QMainWindow):
             self.canvas.blit(self.ax.bbox)
         else:
             self.canvas.draw_idle()
+
+    def _toggle_y_axis_inversion(self):
+        """Toggle the y-axis inversion state and update the plot"""
+        if not hasattr(self, 'ax') or self.ax is None:
+            return
+            
+        self.y_axis_inverted = self.invert_y_action.isChecked()
+        
+        # Store current limits
+        cur_ylim = self.ax.get_ylim()
+        # Invert the limits
+        self.ax.set_ylim(cur_ylim[::-1])
+        
+        self._need_draw = True
+        self.canvas.draw()
 
 def main():
     app = QApplication(sys.argv)
