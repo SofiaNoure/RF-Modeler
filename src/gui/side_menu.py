@@ -925,14 +925,13 @@ class SideMenu(QWidget):
         self.mobile_height_input.setFixedHeight(32)
         self.mobile_height_input.setToolTip("Height of mobile station antenna (1-10m)")
         params_grid.addWidget(self.mobile_height_input, 2, 1)
-        
-        # Add the grid to the layout
+          # Add the grid to the layout
         okumura_layout.addLayout(params_grid)
         
         # Okumura-Hata toggle button
         okumura_btn_container = QWidget()
         okumura_btn_layout = QHBoxLayout(okumura_btn_container)
-        okumura_btn_layout.setContentsMargins(0, 5, 0, 0)
+        okumura_btn_layout.setContentsMargins(0, 0, 0, 0)
         
         self.okumura_toggle_btn = QPushButton("Show Okumura-Hata Model")
         self.okumura_toggle_btn.setStyleSheet(Styles.BUTTON_TOGGLE)
