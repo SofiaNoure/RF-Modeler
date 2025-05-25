@@ -884,35 +884,50 @@ class SideMenu(QWidget):
         okumura_frame.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
         okumura_frame.setStyleSheet("QFrame { background-color: #2d3446; border-radius: 6px; }")
         okumura_layout = QVBoxLayout(okumura_frame)
+        okumura_layout.setSpacing(8)
+        okumura_layout.setContentsMargins(10, 8, 10, 8)  # More compact margins
         
         # Okumura-Hata title
         okumura_title = QLabel("Okumura-Hata Model")
         okumura_title.setStyleSheet(Styles.LABEL_TITLE)
         okumura_layout.addWidget(okumura_title)
+          # Okumura-Hata parameters - use a more compact grid layout
+        params_grid = QGridLayout()
+        params_grid.setSpacing(8)
+        params_grid.setContentsMargins(5, 5, 5, 5)
         
-        # Okumura-Hata parameters
-        okumura_params = [
-            ("Frequency (MHz):", "Operating frequency in MHz (150-2000)", self.frequency_input),
-            ("Base Station Height (m):", "Height of base station antenna (30-200m)", self.base_height_input),
-            ("Mobile Height (m):", "Height of mobile station antenna (1-10m)", self.mobile_height_input)
-        ]
+        # Row 0: Frequency
+        label = QLabel("Frequency (MHz):")
+        label.setStyleSheet(Styles.LABEL)
+        params_grid.addWidget(label, 0, 0)
         
-        for label_text, tooltip, input_field in okumura_params:
-            param_container = QWidget()
-            param_layout = QVBoxLayout(param_container)
-            param_layout.setSpacing(4)
-            param_layout.setContentsMargins(0, 0, 0, 0)
-            
-            label = QLabel(label_text)
-            label.setStyleSheet(Styles.LABEL)
-            
-            input_field.setStyleSheet(Styles.INPUT_FIELD)
-            input_field.setFixedHeight(32)
-            input_field.setToolTip(tooltip)
-            
-            param_layout.addWidget(label)
-            param_layout.addWidget(input_field)
-            okumura_layout.addWidget(param_container)
+        self.frequency_input.setStyleSheet(Styles.INPUT_FIELD)
+        self.frequency_input.setFixedHeight(32)
+        self.frequency_input.setToolTip("Operating frequency in MHz (150-2000)")
+        params_grid.addWidget(self.frequency_input, 0, 1)
+        
+        # Row 1: Base Station Height
+        label = QLabel("Base Height (m):")
+        label.setStyleSheet(Styles.LABEL)
+        params_grid.addWidget(label, 1, 0)
+        
+        self.base_height_input.setStyleSheet(Styles.INPUT_FIELD)
+        self.base_height_input.setFixedHeight(32)
+        self.base_height_input.setToolTip("Height of base station antenna (30-200m)")
+        params_grid.addWidget(self.base_height_input, 1, 1)
+        
+        # Row 2: Mobile Station Height
+        label = QLabel("Mobile Height (m):")
+        label.setStyleSheet(Styles.LABEL)
+        params_grid.addWidget(label, 2, 0)
+        
+        self.mobile_height_input.setStyleSheet(Styles.INPUT_FIELD)
+        self.mobile_height_input.setFixedHeight(32)
+        self.mobile_height_input.setToolTip("Height of mobile station antenna (1-10m)")
+        params_grid.addWidget(self.mobile_height_input, 2, 1)
+        
+        # Add the grid to the layout
+        okumura_layout.addLayout(params_grid)
         
         # Okumura-Hata toggle button
         okumura_btn_container = QWidget()
