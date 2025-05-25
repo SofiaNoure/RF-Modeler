@@ -708,9 +708,7 @@ class SideMenu(QWidget):
         
         # Initialize axis mapping for background images
         self.current_extent = None
-        self.background_image = None
-
-        # Create input fields as instance variables using specialized widgets
+        self.background_image = None        # Create input fields as instance variables using specialized widgets
         self.max_input = QSpinBox()
         self.max_input.setRange(1, 100) # Set a reasonable range
         self.max_input.setValue(5) # Default value
@@ -724,6 +722,28 @@ class SideMenu(QWidget):
         self.min_input = QSpinBox()
         self.min_input.setRange(1, 1000) # Set a reasonable range
         self.min_input.setValue(3) # Default value
+        
+        # Okumura-Hata model parameters
+        self.frequency_input = QDoubleSpinBox()
+        self.frequency_input.setRange(150, 2000) # Frequency range in MHz
+        self.frequency_input.setSingleStep(10)
+        self.frequency_input.setDecimals(1)
+        self.frequency_input.setValue(1500.0) # Default value
+        
+        self.base_height_input = QDoubleSpinBox()
+        self.base_height_input.setRange(30, 200) # Base station height in meters
+        self.base_height_input.setSingleStep(1)
+        self.base_height_input.setDecimals(1)
+        self.base_height_input.setValue(30.0) # Default value
+        
+        self.mobile_height_input = QDoubleSpinBox()
+        self.mobile_height_input.setRange(1, 10) # Mobile station height in meters
+        self.mobile_height_input.setSingleStep(0.1)
+        self.mobile_height_input.setDecimals(1)
+        self.mobile_height_input.setValue(1.5) # Default value
+        
+        # Flag to track if Okumura-Hata model is shown
+        self.show_okumura_hata = False
 
         # Create loading indicator
         self.loading_bar = QProgressBar()
@@ -859,8 +879,70 @@ class SideMenu(QWidget):
         self.auto_apply_btn.setToolTip("Fit the regression model to the uploaded data.") # Add tooltip
         button_layout.addWidget(self.auto_apply_btn)
         
-        auto_layout.addWidget(button_container)
-
+        auto_layout.addWidget(button_container)        # Add Okumura-Hata model section
+        okumura_frame = QFrame()
+        okumura_frame.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
+        okumura_frame.setStyleSheet("QFrame { background-color: #2d3446; border-radius: 6px; }")
+        okumura_layout = QVBoxLayout(okumura_frame)
+        okumura_layout.setSpacing(8)
+        okumura_layout.setContentsMargins(10, 8, 10, 8)  # More compact margins
+        
+        # Okumura-Hata title
+        okumura_title = QLabel("Okumura-Hata Model")
+        okumura_title.setStyleSheet(Styles.LABEL_TITLE)
+        okumura_layout.addWidget(okumura_title)
+          # Okumura-Hata parameters - use a more compact grid layout
+        params_grid = QGridLayout()
+        params_grid.setSpacing(8)
+        params_grid.setContentsMargins(5, 5, 5, 5)
+        
+        # Row 0: Frequency
+        label = QLabel("Frequency (MHz):")
+        label.setStyleSheet(Styles.LABEL)
+        params_grid.addWidget(label, 0, 0)
+        
+        self.frequency_input.setStyleSheet(Styles.INPUT_FIELD)
+        self.frequency_input.setFixedHeight(32)
+        self.frequency_input.setToolTip("Operating frequency in MHz (150-2000)")
+        params_grid.addWidget(self.frequency_input, 0, 1)
+        
+        # Row 1: Base Station Height
+        label = QLabel("Base Height (m):")
+        label.setStyleSheet(Styles.LABEL)
+        params_grid.addWidget(label, 1, 0)
+        
+        self.base_height_input.setStyleSheet(Styles.INPUT_FIELD)
+        self.base_height_input.setFixedHeight(32)
+        self.base_height_input.setToolTip("Height of base station antenna (30-200m)")
+        params_grid.addWidget(self.base_height_input, 1, 1)
+        
+        # Row 2: Mobile Station Height
+        label = QLabel("Mobile Height (m):")
+        label.setStyleSheet(Styles.LABEL)
+        params_grid.addWidget(label, 2, 0)
+        
+        self.mobile_height_input.setStyleSheet(Styles.INPUT_FIELD)
+        self.mobile_height_input.setFixedHeight(32)
+        self.mobile_height_input.setToolTip("Height of mobile station antenna (1-10m)")
+        params_grid.addWidget(self.mobile_height_input, 2, 1)
+          # Add the grid to the layout
+        okumura_layout.addLayout(params_grid)
+        
+        # Okumura-Hata toggle button
+        okumura_btn_container = QWidget()
+        okumura_btn_layout = QHBoxLayout(okumura_btn_container)
+        okumura_btn_layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.okumura_toggle_btn = QPushButton("Show Okumura-Hata Model")
+        self.okumura_toggle_btn.setStyleSheet(Styles.BUTTON_TOGGLE)
+        self.okumura_toggle_btn.setCheckable(True)
+        self.okumura_toggle_btn.setToolTip("Show/hide Okumura-Hata path loss prediction model")
+        self.okumura_toggle_btn.clicked.connect(self._toggle_okumura_hata)
+        okumura_btn_layout.addWidget(self.okumura_toggle_btn)
+        
+        okumura_layout.addWidget(okumura_btn_container)
+        auto_layout.addWidget(okumura_frame)
+        
         # Add display function button at the bottom
         display_function_container = QWidget()
         display_function_layout = QHBoxLayout(display_function_container)
@@ -1189,6 +1271,60 @@ class SideMenu(QWidget):
 
         self.stack.addWidget(other_menu)
 
+    def _calculate_okumura_hata(self, distances):
+        """
+        Calculate path loss using the Okumura-Hata model.
+
+        Parameters:
+        - distances: numpy array of distances in km
+        
+        Returns:
+        - path_loss: numpy array of path loss values in dB
+        """
+        # Get parameters
+        frequency = self.frequency_input.value()  # MHz
+        hb = self.base_height_input.value()       # base station height in meters
+        hm = self.mobile_height_input.value()     # mobile station height in meters
+        
+        # Calculate city size correction factor for medium-small city
+        city_correction = 0.8 + (1.1 * np.log10(frequency) - 0.7) * hm - 1.56 * np.log10(frequency)
+        
+        # Calculate path loss
+        # Basic formula for urban areas: L = 69.55 + 26.16log(f) - 13.82log(hb) + (44.9-6.55log(hb))log(d) - a(hm)
+        # where L is path loss in dB, f is frequency in MHz, hb is base station height in meters,
+        # d is distance in km, and a(hm) is the city size correction factor
+        path_loss = (
+            69.55 + 
+            26.16 * np.log10(frequency) - 
+            13.82 * np.log10(hb) + 
+            (44.9 - 6.55 * np.log10(hb)) * np.log10(distances) - 
+            city_correction
+        )
+        
+        # Return path loss directly - the y-axis is already inverted in plotting
+        # Higher path loss values (more negative) correspond to worse signal quality
+        return path_loss
+    def _toggle_okumura_hata(self):
+        """Toggle the visibility of Okumura-Hata model on the plot"""
+        self.show_okumura_hata = self.okumura_toggle_btn.isChecked()
+        
+        # Update button text
+        if self.show_okumura_hata:
+            self.okumura_toggle_btn.setText("Hide Okumura-Hata Model")
+        else:
+            self.okumura_toggle_btn.setText("Show Okumura-Hata Model")
+        
+        # If we have data and a plot, update it
+        if hasattr(self, 'csv_data') and self.csv_data is not None:
+            # Show loading indicator for model fitting
+            self.loading_bar.show()
+            self.loading_bar.setRange(0, 0)  # Indeterminate mode
+            self.parent.statusBar.showMessage("Updating plot...", 0)
+            # Use QTimer to allow UI update before heavy computation
+            QTimer.singleShot(50, self._perform_auto_plot)
+        else:
+            self.parent.statusBar.showMessage("Please upload CSV data first", 5000)
+    
     def _connect_signals(self):
         self.auto_btn.clicked.connect(lambda: self.show_menu(0))
         self.manual_btn.clicked.connect(lambda: self.show_menu(1))
@@ -2011,15 +2147,10 @@ class SideMenu(QWidget):
 
         # Generate fine-grained x values for smooth curve plotting
         x_fine = np.logspace(np.log10(x.min()), np.log10(x.max()), 1000)
-        y_pred_fine = model.predict(x_fine)
-
-        # Plot segments with confidence intervals using the utility function
+        y_pred_fine = model.predict(x_fine)        # Plot segments with confidence intervals using the utility function
         num_segments = len(model.breakpoints_) - 1
         colors = plt.cm.viridis(np.linspace(0, 0.8, num_segments))
         plot_regression_segments(self.parent.ax, model, x_fine, y_pred_fine, colors)
-
-        # Ensure y-axis is inverted
-        self.parent.ax.invert_yaxis()
 
         # Plot confidence intervals (this part remains as it's specific to this plot)
         for i in range(num_segments):
@@ -2037,9 +2168,7 @@ class SideMenu(QWidget):
                                 y_segment - interval,
                                 y_segment + interval,
                                 color=colors[i], alpha=0.2
-                            )
-
-        # Add breakpoint indicators
+                            )        # Add breakpoint indicators
         for i, bp in enumerate(model.breakpoints_[1:-1], 1):
             self.parent.ax.axvline(bp, color='k', linestyle='--', alpha=0.5, linewidth=1)
             # Add breakpoint value annotation
@@ -2047,13 +2176,25 @@ class SideMenu(QWidget):
             self.parent.ax.annotate(f'BP{i}\n({bp:.1f})', 
                                   (bp, y_pos),
                                   xytext=(5, 5), textcoords='offset points',
-                                  fontsize=8, bbox=dict(facecolor='white', alpha=0.7))
-
-        # Enhance the plot appearance
-        self.parent.ax.set_xlabel('Distance (log scale)')
+                                  fontsize=8, bbox=dict(facecolor='white', alpha=0.7))        # Add Okumura-Hata model if enabled
+        if self.show_okumura_hata:            # Convert distances from meters to kilometers for Okumura-Hata model
+            x_km = x_fine / 1000.0  # Assuming original distances are in meters
+            okumura_loss = self._calculate_okumura_hata(x_km)
+            
+            # Plot Okumura-Hata model with distinct style
+            # For path loss convention, remember the y-axis is already inverted in the plot
+            # so we use the values directly without inversion
+            self.parent.ax.semilogx(x_fine, okumura_loss, '--', linewidth=2.5, color='red', 
+                                  label=f'Okumura-Hata ({self.frequency_input.value()} MHz)')
+            
+            # Add legend with both models
+            self.parent.ax.legend(loc='best', fontsize=9)# Enhance the plot appearance        self.parent.ax.set_xlabel('Distance (log scale)')
         self.parent.ax.set_ylabel('Path Loss (dB)')
         self.parent.ax.grid(True, which='both', alpha=0.2)
         self.parent.ax.grid(True, which='major', alpha=0.5)
+        # In path loss models, larger values (more negative) represent greater loss
+        # Make sure y-axis is inverted for path loss convention (higher values at the bottom)
+        self.parent.ax.invert_yaxis()
         
         # Create title with stats
         title = 'Piecewise Logarithmic Regression'
