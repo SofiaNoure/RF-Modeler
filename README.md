@@ -34,36 +34,84 @@ git clone <repository-url>
 cd RF-Modeler
 ```
 
-2. Create and activate a virtual environment (recommended):
+### Windows Installation
+
+1. Create and activate a virtual environment:
 ```bash
-# Windows
 python -m venv venv
 .\venv\Scripts\activate
-
-# Linux/macOS
-python -m venv venv
-source venv/bin/activate
 ```
 
-3. Install the required dependencies:
+2. Install the required dependencies:
 ```bash
 pip install -r requirements.txt
-pip3 install -r requirements.txt #In case of using linux
 ```
 
-## Running the Application
-
-1. Run the application using Python:
-```bash
-python App.py
-python3 App.py #In case of using linux
-```
-
-2. For Windows users, you can also build a standalone executable:
+3. Build a standalone executable (optional):
 ```bash
 .\build_windows.bat
 ```
-The executable will be created in the `dist` folder.
+The executable will be created in the `dist\RF-Modeler` folder. You can run the application by double-clicking `RF-Modeler.exe`.
+
+### Linux Installation
+
+1. Create and activate a virtual environment:
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+2. Install the required dependencies:
+```bash
+pip3 install -r requirements.txt
+```
+
+3. Build a standalone executable (optional):
+```bash
+chmod +x build_linux.sh  # Make the build script executable
+./build_linux.sh
+```
+The executable will be created in the `dist/RF-Modeler` folder.
+
+## Running the Application
+
+### Running from Source
+
+#### Windows
+1. Activate the virtual environment if not already activated:
+```bash
+.\venv\Scripts\activate
+```
+
+2. Run the application:
+```bash
+python App.py
+```
+
+#### Linux
+1. Activate the virtual environment if not already activated:
+```bash
+source venv/bin/activate
+```
+
+2. Run the application:
+```bash
+python3 App.py
+```
+
+### Running the Standalone Executable
+
+#### Windows
+Navigate to the `dist\RF-Modeler` folder and double-click `RF-Modeler.exe`, or run from command prompt:
+```bash
+.\dist\RF-Modeler\RF-Modeler.exe
+```
+
+#### Linux
+Navigate to the `dist/RF-Modeler` folder and run:
+```bash
+./dist/RF-Modeler/RF-Modeler
+```
 
 ## Usage Guide
 
@@ -127,9 +175,3 @@ RF-Modeler/
 └── requirements.txt    # Python dependencies
 ```
 
-## Support
-
-For issues, bugs, or feature requests, please submit an issue through the project's issue tracker.
-
-## License
-XXXXXXXXXX

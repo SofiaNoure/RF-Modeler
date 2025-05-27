@@ -115,8 +115,8 @@ class MathExpressionRenderer:
         Format individual segment with LaTeX-style mathematical notation
         """
         # Step 1: Replace numpy functions first
-        formatted = segment.replace("np.log(x)", "ln(x)")
-        formatted = formatted.replace("np.log", "ln")
+        formatted = segment.replace("np.log(x)", "log(x)")
+        formatted = formatted.replace("np.log", "log")
         formatted = formatted.replace("np.heaviside", "H")
         formatted = formatted.replace("np.exp", "exp")
         formatted = formatted.replace("np.sin", "sin")
@@ -344,43 +344,3 @@ class MainWindow(QMainWindow):
         button_layout.addStretch()
         
         layout.addLayout(button_layout)
-        
-    def load_demo_expression(self):
-        """
-        Load a demo expression (simulating your function output)
-        """
-        demo_expression = (
-            "(0.123456 + 0.789012*np.log(x)) * "
-            "(np.heaviside(x-1.000000) - np.heaviside(x-2.000000, 0)) + "
-            "(0.456789 + 0.234567*np.log(x)) * "
-            "(np.heaviside(x-2.000000) - np.heaviside(x-3.000000, 0)) + "
-            "(0.891234 + 0.567890*np.log(x)) * "
-            "(np.heaviside(x-3.000000) - np.heaviside(x-4.000000, 0))"
-        )
-        
-        self.expression_widget.set_expression(demo_expression)
-
-
-def main():
-    """
-    Main application entry point
-    """
-    app = QApplication(sys.argv)
-    
-    # Set application style
-    app.setStyle('Fusion')  # Modern look
-    
-    # Create and show main window
-    window = MainWindow()
-    window.show()
-    
-    # Example of how to use with your function
-    # Assuming you have your class instance:
-    # expression = your_instance.get_universal_function()
-    # window.expression_widget.set_expression(expression)
-    
-    sys.exit(app.exec())
-
-
-if __name__ == "__main__":
-    main()

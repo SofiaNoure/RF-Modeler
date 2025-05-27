@@ -20,21 +20,13 @@ def generate_heatmap_data(x, y, grid_size=500):
     y_min, y_max = y.min(), y.max()
 
     xi = np.linspace(x_min, x_max, grid_size)
-    # Initialize Z with a value representing high loss (or max observed loss)
     Z = np.full(grid_size, np.max(y)) 
 
-    # Simple nearest-neighbor interpolation/assignment for heatmap effect
     for dist, loss in zip(x, y):
-        # Find indices of the 5 nearest grid points
         idx = np.abs(xi - dist).argsort()[:5] 
-        # Calculate distances to these nearest points
         distances = np.abs(xi[idx] - dist)
-        # Simple inverse distance weighting (add 1 to avoid division by zero)
         weights = 1 / (1 + distances) 
-        # Normalize weights
         weights = weights / np.sum(weights) 
-        # Update Z: take the minimum loss seen near this grid point
-        # This creates the effect of 'signal strength' spreading slightly
         Z[idx] = np.minimum(Z[idx], loss) 
 
     return xi, Z, x_min, x_max, y_min, y_max
@@ -58,6 +50,5 @@ def plot_regression_segments(ax, model, x_fine, y_pred_fine, colors=None):
     for i in range(num_segments):
         mask = (x_fine >= model.breakpoints_[i]) & (x_fine <= model.breakpoints_[i + 1])
         if i < len(model.models_) and model.models_[i] is not None:
-            # Plot fitted line for this segment
             ax.semilogx(x_fine[mask], y_pred_fine[mask], '-', 
                       linewidth=2, color=colors[i])

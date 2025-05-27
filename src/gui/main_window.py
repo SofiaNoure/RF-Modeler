@@ -42,7 +42,7 @@ class MathPlotterApp(QMainWindow):
         self.init_plot_with_placeholder("auto")
 
     def _initialize_window(self):
-        self.setWindowTitle("Project 19")
+        self.setWindowTitle("RF - Modeler")
         self.setMinimumSize(1000, 700)
         self.setStyleSheet(Styles.MAIN_WINDOW)
 

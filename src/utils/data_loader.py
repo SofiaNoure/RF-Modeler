@@ -15,7 +15,6 @@ def load_data_from_file(filename: str) -> Tuple[np.ndarray, np.ndarray, Optional
         Exception: If file cannot be read or has invalid format
     """
     try:
-        # Read CSV, skip header row, use first two columns
         data = np.genfromtxt(filename, delimiter=',', skip_header=1, usecols=(0, 1))
         x = data[:, 0]
         y = data[:, 1]
