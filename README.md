@@ -1,7 +1,6 @@
 # RF-Modeler
 
-RF-Modeler is an intelligent modeling and visualization application designed to analyze and predict radio frequency (RF) signal behaviors using advanced mathematical and AI-driven techniques.
-Built with PySide6, it offers a modern, interactive interface for exploring complex signal propagation models, enhancing prediction accuracy through data-driven learning and adaptive regression methods.
+RF-Modeler is a modeling and visualization application designed to analyze radio frequency (RF) signal behavior using mathematical approximation techniques. The application generates the best-fitting curve from a set of data points, enabling accurate visualization of signal propagation and RF coverage. Built with PySide6, it features a modern and interactive graphical user interface and incorporates advanced mathematical modeling capabilities for analyzing and exploring RF signal data.
 
 ## Features
 
